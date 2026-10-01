@@ -1,0 +1,957 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.github.com; base-uri 'none'">
+<title>Worth — cost per day</title>
+<style>
+:root{
+  --bg:#eceae6;--ink:#15161a;--mute:rgba(21,22,26,.52);--hair:rgba(21,22,26,.09);
+  --glass:rgba(255,255,255,.3);--glass-edge:rgba(255,255,255,.75);--glass-shade:rgba(21,22,26,.06);
+  --accent:#1c7c52;--accent-soft:rgba(28,124,82,.12);--warn:#b4531a;--warn-soft:rgba(180,83,26,.12);
+  --o1:#ffb59a;--o2:#a9c8ff;--o3:#b9e8c9;--dot:rgba(21,22,26,.16);--sheet:rgba(255,255,255,.66);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0b0c0f;--ink:#f2f2f0;--mute:rgba(242,242,240,.5);--hair:rgba(255,255,255,.09);
+  --glass:rgba(255,255,255,.07);--glass-edge:rgba(255,255,255,.22);--glass-shade:rgba(0,0,0,.35);
+  --accent:#5fd6a0;--accent-soft:rgba(95,214,160,.14);--warn:#f0a066;--warn-soft:rgba(240,160,102,.14);
+  --o1:#7a3b2b;--o2:#27447d;--o3:#1f5a40;--dot:rgba(255,255,255,.2);--sheet:rgba(26,27,32,.74);
+}}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;color:var(--ink);min-height:100vh;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Inter","SF Pro Text","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+[hidden]{display:none!important}
+button,select,input{font:inherit;color:inherit;letter-spacing:inherit}
+
+/* backdrop */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:var(--bg)}
+.bg::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,var(--dot) 1.2px,transparent 1.6px);background-size:26px 26px}
+.orb{position:absolute;border-radius:50%;filter:blur(36px);opacity:.45}
+.orb.a{width:30vmax;height:30vmax;left:-8vmax;top:-9vmax;background:var(--o1);animation:f1 28s ease-in-out infinite alternate}
+.orb.b{width:26vmax;height:26vmax;right:-6vmax;top:22vh;background:var(--o2);animation:f2 34s ease-in-out infinite alternate}
+.orb.c{width:24vmax;height:24vmax;left:26vw;bottom:-10vmax;background:var(--o3);animation:f1 40s ease-in-out infinite alternate-reverse}
+@keyframes f1{to{transform:translate(8vmax,6vmax) scale(1.1)}}
+@keyframes f2{to{transform:translate(-9vmax,-5vmax) scale(.92)}}
+@media (prefers-reduced-motion:reduce){.orb{animation:none}}
+
+/* glass */
+.glass{position:relative;background:var(--glass);-webkit-backdrop-filter:blur(14px) saturate(1.6);
+  backdrop-filter:url(#glass) blur(1.5px) saturate(1.6);
+  box-shadow:inset 0 1px 0 var(--glass-edge),inset 0 -1px 0 var(--glass-shade),inset 0 0 0 1px var(--hair),0 18px 40px -18px rgba(0,0,0,.25)}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.5),transparent 38%,transparent 70%,rgba(255,255,255,.12));opacity:.55;mix-blend-mode:overlay}
+@media (prefers-color-scheme:dark){.glass::before{opacity:.35}}
+
+/* layout */
+.wrap{max-width:1120px;margin:0 auto;padding:36px 22px 96px}
+header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-bottom:28px}
+h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.03em}
+.sub{font-size:12.5px;font-weight:400;color:var(--mute);letter-spacing:0;margin-left:8px}
+.note-foot{margin:40px auto 0;max-width:560px;text-align:center;color:var(--mute);font-size:12.5px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row.end{justify-content:flex-end}
+.btn{border:0;background:transparent;padding:8px 14px;border-radius:99px;cursor:pointer;color:var(--mute);transition:color .2s,background .2s,transform .2s;white-space:nowrap}
+.btn:hover{color:var(--ink);background:var(--hair)}
+.btn.primary{background:var(--ink);color:var(--bg);font-weight:500;padding:9px 18px}
+.btn.primary:hover{background:var(--ink);transform:translateY(-1px)}
+.btn.line{border:1px solid var(--hair)}
+.btn.danger:hover{color:var(--warn);background:var(--warn-soft)}
+.tabs,.seg{display:inline-flex;border-radius:99px;padding:4px}
+.tabs button,.seg button{border:0;background:transparent;padding:7px 18px;border-radius:99px;cursor:pointer;color:var(--mute);font-size:14px;transition:.2s;position:relative;z-index:1}
+.tabs button:hover,.seg button:hover{color:var(--ink)}
+.tabs button.on,.seg button.on{background:var(--ink);color:var(--bg)}
+.seg{background:var(--hair);padding:3px}.seg button{padding:5px 14px;font-size:13px}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);border-radius:22px;margin-bottom:26px}
+.stat{padding:20px 24px;position:relative;min-width:0}
+.stat+.stat::after{content:"";position:absolute;left:0;top:22%;bottom:22%;width:1px;background:var(--hair)}
+.stat small,.rates small,.hero small,.dsec h3,label{color:var(--mute);text-transform:uppercase;letter-spacing:.1em}
+.stat small{display:block;font-size:11px;margin-bottom:6px}
+.stat b{font-size:28px;font-weight:300;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1.1;display:block}
+.stat i{font-style:normal;color:var(--mute);font-size:12px;display:block;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.tools{display:flex;gap:8px;margin-bottom:14px;align-items:center;flex-wrap:wrap}
+.pill{border-radius:99px;display:flex;align-items:center}
+.pill input{background:transparent;border:0;padding:10px 18px;width:210px;max-width:100%;outline:0}
+.pill input::placeholder{color:var(--mute)}
+.pill select{background:transparent;border:0;padding:10px 16px;outline:0;cursor:pointer;color:var(--ink)}
+.pill select option{color:#111}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.chip{border:1px solid var(--hair);background:transparent;padding:4px 12px;border-radius:99px;cursor:pointer;color:var(--mute);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;transition:.2s}
+.chip:hover{color:var(--ink)}.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.cat{display:inline-flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.sectionhead{display:flex;justify-content:space-between;align-items:baseline;margin:0 4px 14px;gap:12px;flex-wrap:wrap}
+.sectionhead h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-.02em}
+.sectionhead span{color:var(--mute);font-size:13px}
+
+/* item cards */
+.list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start}
+.empty{grid-column:1/-1;text-align:center;color:var(--mute);padding:64px 20px;border-radius:26px}
+.empty b{display:block;color:var(--ink);font-size:16px;font-weight:600;margin-bottom:4px}
+.item{border-radius:20px;padding:16px 20px 12px;transition:transform .3s cubic-bezier(.2,.7,.2,1)}
+.item.pop{animation:in .5s cubic-bezier(.2,.7,.2,1) both}
+.item[data-id]{cursor:pointer}.item:hover{transform:translateY(-2px)}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.head>div:first-child{min-width:0}
+.name{font-weight:600;font-size:15px;letter-spacing:-.02em;overflow-wrap:anywhere}
+.meta{color:var(--mute);font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tag{display:inline-block;font-size:9.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:99px;background:var(--accent-soft);color:var(--accent);margin-left:8px;vertical-align:2px}
+.tag.worst{background:var(--warn-soft);color:var(--warn)}.tag.retired{background:var(--hair);color:var(--mute)}
+.hero{text-align:right;flex-shrink:0}
+.hero b{font-size:28px;font-weight:300;letter-spacing:-.05em;font-variant-numeric:tabular-nums;line-height:1;color:var(--accent)}
+.hero small{display:block;font-size:10px;margin-top:3px}
+.rates{display:grid;grid-template-columns:repeat(4,1fr);margin:12px 0 10px;border-top:1px solid var(--hair);padding-top:10px}
+.rates>div{min-width:0}
+.rates>div+div{padding-left:10px;border-left:1px solid var(--hair)}
+.rates small{font-size:10px;display:block}
+.rates b{font-variant-numeric:tabular-nums;font-size:14px;font-weight:400;letter-spacing:-.03em;white-space:nowrap}
+.rates em{font-style:normal;font-size:11px;line-height:1.2;color:var(--mute);display:block}
+.bar{height:3px;background:var(--hair);border-radius:3px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:10px;min-height:30px;flex-wrap:wrap}
+.uses{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--mute)}
+.uses b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.mini{border:1px solid var(--hair);background:transparent;border-radius:99px;min-width:26px;height:26px;padding:0 9px;cursor:pointer;color:var(--ink);font-size:12.5px;line-height:1;transition:.2s}
+.mini:hover{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.cpu{margin-left:4px;padding-left:10px;border-left:1px solid var(--hair);color:var(--ink)}
+.stars{letter-spacing:1px;color:var(--accent);font-size:13px;white-space:nowrap}.stars i{font-style:normal;color:var(--hair)}
+.hint{font-size:12.5px;color:var(--mute)}
+
+/* subscriptions */
+.table{border-radius:22px;overflow:hidden}
+.srow{display:grid;grid-template-columns:minmax(150px,2fr) repeat(4,1fr) auto;gap:14px;align-items:center;padding:14px 22px}
+.srow+.srow{border-top:1px solid var(--hair)}
+.srow small{display:block;font-size:10px;color:var(--mute);text-transform:uppercase;letter-spacing:.1em}
+.srow b{font-weight:400;font-variant-numeric:tabular-nums}
+.srow.off{opacity:.55}
+.srow .acts{display:flex;gap:2px}
+.srow .acts .btn,.wish .acts .btn{padding:4px 10px;font-size:12.5px}
+.wish .note{font-size:13px;color:var(--mute);margin:2px 0 0;display:grid;gap:2px}
+.wish .note b{color:var(--ink);font-weight:500}
+.wish .acts{display:flex;gap:2px;justify-content:flex-end;flex-wrap:wrap}
+
+/* insights */
+.insights{display:grid;gap:14px}
+.panel{border-radius:22px;padding:22px 24px}
+.panel h3{margin:0 0 4px;font-size:15px;font-weight:600;letter-spacing:-.02em;text-transform:none;color:var(--ink)}
+.panel p{margin:0 0 14px;color:var(--mute);font-size:13px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hbars{display:grid;gap:10px}
+.hb{display:grid;grid-template-columns:130px 1fr auto;gap:12px;align-items:center;font-size:13.5px}
+.hb .lab{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb .track{height:8px;background:var(--hair);border-radius:8px;overflow:hidden}
+.hb .track span{display:block;height:100%;border-radius:8px}
+.hb .val{font-variant-numeric:tabular-nums;color:var(--mute);font-size:12.5px;text-align:right;white-space:nowrap}
+.hb .val b{color:var(--ink);font-weight:500}
+.hb[data-id]{cursor:pointer}
+
+/* dialogs */
+dialog{border:none;border-radius:28px;padding:0;background:transparent;color:var(--ink);width:min(460px,92vw);overflow:visible}
+dialog::backdrop{background:rgba(10,10,14,.28);backdrop-filter:blur(8px)}
+.sheet{border-radius:28px;padding:28px 30px;background:var(--sheet)}
+form.sheet,.sheet.grid{display:grid;gap:18px}
+.sheet h2{margin:0;font-size:19px;font-weight:600;letter-spacing:-.03em}
+.dtop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+fieldset{border:0;padding:0;margin:0;display:grid;gap:18px;min-width:0}fieldset[disabled]{display:none}
+label{display:grid;gap:4px;font-size:11px}
+label input,label select,.sheet select{background:transparent;border:0;border-bottom:1px solid var(--hair);padding:6px 0 8px;font-size:16px;color:var(--ink);text-transform:none;letter-spacing:-.01em;border-radius:0;outline:0;transition:border-color .2s;color-scheme:light dark;width:100%}
+label select option,.sheet select option{color:#111}
+label.check{display:flex;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink);cursor:pointer}
+label.check input{width:auto;accent-color:var(--accent)}label.check span{color:var(--mute)}
+label input:focus,label select:focus,.sheet select:focus{border-color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.preview{border-radius:14px;padding:12px 14px;font-size:14px;min-height:46px;background:var(--accent-soft);color:var(--accent)}
+.actions{display:flex;justify-content:flex-end;gap:6px}
+.rate{display:flex;gap:2px}.rate button{border:0;background:transparent;font-size:22px;color:var(--hair);cursor:pointer;padding:0 2px;line-height:1.2;transition:.15s}
+.rate button.on{color:var(--accent)}.rate button:hover{transform:scale(1.15)}
+
+#dlg2{width:min(700px,94vw);max-height:92vh}
+#dlg2 .sheet{max-height:92vh;overflow:auto;display:block}
+.dhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:16px}
+.dhead .name{font-size:22px;letter-spacing:-.03em}
+.dsec{margin-top:24px}
+.dsec h3{margin:0 0 10px;font-size:11px;font-weight:500}
+.rates.five{grid-template-columns:repeat(5,1fr);margin:16px 0 4px}
+.rates.five b{font-size:16px}.rates.three{grid-template-columns:repeat(3,1fr);margin:0}.rates.two{grid-template-columns:repeat(2,1fr);margin:0}
+.rates.flat{border-top:0;padding-top:0}
+.slide{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;color:var(--mute);font-size:13px}
+.slide b{color:var(--ink);font-size:20px;font-weight:300;letter-spacing:-.03em}
+input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0 10px}
+.chiprow{display:flex;gap:6px;flex-wrap:wrap}
+.chiprow .btn{border:1px solid var(--hair);padding:5px 12px;font-size:12.5px}
+.chiprow .btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.target{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;color:var(--mute)}
+.target input{width:84px;background:transparent;border:0;border-bottom:1px solid var(--hair);padding:3px 0;color:var(--ink);font-size:15px;outline:0;text-align:right}
+.target b{color:var(--ink);font-weight:500}
+.inline{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.chart{width:100%;height:auto;display:block;overflow:visible;touch-action:pan-y}
+.chart text{fill:var(--mute);font-size:10.5px;font-family:inherit}
+.chart .grid{stroke:var(--hair);stroke-width:1}
+.chart .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chart .proj{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:2 6;stroke-linecap:round;opacity:.85}
+.chart .area{fill:var(--accent);opacity:.1}
+.chart .col{fill:var(--accent);opacity:.28;transition:opacity .2s;cursor:pointer}.chart .col:hover,.chart .col.on{opacity:.9}
+.chart .val{fill:var(--ink);font-size:11px}
+.chart .cross{stroke:var(--mute);stroke-width:1;stroke-dasharray:3 3}
+.chart .pt{fill:var(--accent);stroke:var(--bg);stroke-width:2}
+.chart .tip{fill:var(--ink);font-size:11.5px}
+.chart .quad{font-size:10px;text-transform:uppercase;letter-spacing:.08em;opacity:.6}
+.chart circle.sc{stroke:var(--bg);stroke-width:1.5;fill-opacity:.8;cursor:pointer;transition:r .15s}.chart circle.sc:hover{r:9}
+
+#dlg3{width:min(480px,92vw)}#dlg3 .sheet{max-height:90vh;overflow:auto}
+.syncbox{display:grid;gap:12px;padding:16px 18px;border-radius:16px;background:var(--hair)}
+.syncbox h3{margin:0;font-size:13px;font-weight:600;letter-spacing:-.01em}
+.syncbox h3 span{font-weight:400;color:var(--mute)}
+.syncbox .hint{font-size:12px}
+.syncbox a{color:var(--ink)}
+.warnline{color:var(--warn);font-size:13px}.okline{color:var(--accent);font-size:13px}
+.syncstat{font-size:12.5px;padding:6px 10px}
+@media(max-width:760px){
+  header{grid-template-columns:1fr auto}.sub{display:none}.tabs{grid-column:1/-1;order:3;justify-self:stretch;display:flex}.tabs button{flex:1;padding:7px 4px;font-size:13px}
+  .stats{grid-template-columns:1fr 1fr}.stat:nth-child(3)::after{display:none}.stat:nth-child(n+3){border-top:1px solid var(--hair)}
+  .srow{grid-template-columns:1fr 1fr;row-gap:10px}.srow>:first-child,.srow .acts{grid-column:1/-1}
+  .two-col{grid-template-columns:1fr}.hb{grid-template-columns:90px 1fr auto}
+  .rates.five{grid-template-columns:repeat(3,1fr);row-gap:14px}.rates.five>div:nth-child(4){padding-left:0;border-left:0}
+  #dlg2 .sheet{padding:22px 18px}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="glass" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.011 0.016" numOctaves="2" seed="7" result="noise"/>
+    <feGaussianBlur in="noise" stdDeviation="1.5" result="soft"/>
+    <feDisplacementMap in="SourceGraphic" in2="soft" scale="46" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+<div class="bg"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
+
+<div class="wrap">
+  <header>
+    <h1>worth <span class="sub">what your things are worth to you</span></h1>
+    <nav class="tabs glass" id="tabs">
+      <button data-v="items">Items</button><button data-v="subs">Subscriptions</button><button data-v="wish">Wishlist</button><button data-v="insights">Insights</button>
+    </nav>
+    <div class="row end">
+      <button class="btn syncstat" id="syncstat" hidden></button>
+      <button class="btn" id="settings">Settings</button>
+      <button class="btn primary" id="add">+ Add</button>
+    </div>
+  </header>
+
+  <section class="stats glass" id="stats"></section>
+
+  <main id="v-items">
+    <div class="tools">
+      <div class="pill glass"><input type="search" id="q" placeholder="Search"></div>
+      <div class="pill glass"><select id="sort">
+        <option value="cheap">Cheapest per day</option>
+        <option value="exp">Most expensive per day</option>
+        <option value="cpu">Cheapest per use</option>
+        <option value="rating">Highest rated</option>
+        <option value="new">Newest first</option>
+        <option value="old">Oldest first</option>
+        <option value="days">Most days owned</option>
+        <option value="price">Highest price</option>
+      </select></div>
+      <div class="pill glass"><select id="filter">
+        <option value="all">All items</option><option value="active">In use</option><option value="retired">Retired</option>
+      </select></div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <section class="list" id="list"></section>
+  </main>
+  <main id="v-subs" hidden></main>
+  <main id="v-wish" hidden></main>
+  <main id="v-insights" hidden></main>
+  <p class="note-foot">Worth keeps tabs on what your things are worth to you. It is not a budget or spending plan — nothing here is borrowed or owed, and income is only a yardstick for scale.</p>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="form" class="sheet glass">
+    <div class="dtop"><h2 id="dtitle">Add item</h2>
+      <div class="seg" id="seg"><button type="button" data-t="item">Item</button><button type="button" data-t="sub">Subscription</button><button type="button" data-t="wish">Wish</button></div></div>
+    <div class="two" style="grid-template-columns:2fr 1fr">
+      <label>Name<input id="f-name" required maxlength="60" placeholder="e.g. Espresso machine"></label>
+      <label>Category<input id="f-cat" list="cats" maxlength="24" placeholder="Tech"></label>
+    </div>
+    <datalist id="cats"></datalist>
+
+    <fieldset id="fs-item">
+      <div class="two">
+        <label>Price paid<input id="f-price" type="number" min="0" step="0.01" required placeholder="0.00"></label>
+        <label>Resale value (optional)<input id="f-resale" type="number" min="0" step="0.01" placeholder="0.00"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="f-resaleon"> Subtract resale value from the cost <span>(off = ignored until you sell it)</span></label>
+      <div class="two">
+        <label>Owned since<input id="f-start" type="date" required></label>
+        <label>Until (empty = still using)<input id="f-end" type="date"></label>
+      </div>
+      <div class="two">
+        <label>Times used (optional)<input id="f-uses" type="number" min="0" step="1" placeholder="0"></label>
+        <label>Worth it?<div class="rate" id="f-rate"></div></label>
+      </div>
+    </fieldset>
+    <fieldset id="fs-sub" disabled>
+      <div class="two">
+        <label>Price<input id="s-price" type="number" min="0" step="0.01" required placeholder="0.00"></label>
+        <label>Billed<select id="s-period"><option value="month">monthly</option><option value="year">yearly</option></select></label>
+      </div>
+      <div class="two">
+        <label>Since<input id="s-start" type="date" required></label>
+        <label>Cancelled on (optional)<input id="s-end" type="date"></label>
+      </div>
+    </fieldset>
+    <fieldset id="fs-wish" disabled>
+      <div class="two">
+        <label>Price<input id="w-price" type="number" min="0" step="0.01" required placeholder="0.00"></label>
+        <label>Expected resale (optional)<input id="w-resale" type="number" min="0" step="0.01" placeholder="0.00"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="w-resaleon"> Subtract expected resale from the cost</label>
+      <div class="two">
+        <label>I'd keep it for<input id="w-keep" type="number" min="1" step="1" required value="3"></label>
+        <label>&nbsp;<select id="w-unit"><option value="years">years</option><option value="months">months</option></select></label>
+      </div>
+      <label>Compare with something I own<select id="w-cmp"></select></label>
+    </fieldset>
+
+    <div class="preview" id="preview"></div>
+    <div class="actions">
+      <button type="button" class="btn" id="cancel">Cancel</button>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg2"><div class="sheet glass" id="d-body"></div></dialog>
+
+<dialog id="dlg3">
+  <div class="sheet glass grid">
+    <h2>Settings</h2>
+    <label>Currency<select id="s-cur"></select></label>
+    <label>Monthly net income<input id="s-income" type="number" min="0" step="1" placeholder="0"></label>
+    <div class="hint">Income is only a yardstick, so you can see how big a purchase is relative to what you earn. This app isn't a budget or spending plan. Data stays in this browser unless you turn on sync below.</div>
+    <div class="syncbox">
+      <h3>Sync across devices <span>(optional)</span></h3>
+      <div id="sy-form" class="grid" style="display:grid;gap:12px">
+        <label>Private GitHub repo<input id="sy-repo" placeholder="yourname/worth-data" autocomplete="off" spellcheck="false"></label>
+        <label>Access token<input id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
+        <div class="hint">Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> for <b>only that repo</b> with <b>Contents: Read and write</b>. It is kept in this browser only. The repo must be private — public repos are refused.</div>
+        <div><button class="btn line" id="sy-connect">Connect &amp; sync</button></div>
+      </div>
+      <div id="sy-on" style="display:none;gap:10px">
+        <div>Connected to <b id="sy-name"></b></div>
+        <div class="hint" id="sy-state"></div>
+        <div class="row"><button class="btn line" id="sy-now">Sync now</button><button class="btn" id="sy-disc">Disconnect</button></div>
+      </div>
+      <div id="sy-msg"></div>
+    </div>
+    <div class="row">
+      <button class="btn line" id="export">Export backup</button>
+      <button class="btn line" id="import">Import backup</button>
+      <button class="btn danger" id="clear">Delete all data</button>
+    </div>
+    <div class="actions"><button class="btn primary" id="s-done">Done</button></div>
+  </div>
+</dialog>
+<input type="file" id="file" accept="application/json" hidden>
+
+<script>
+/* ============ state ============ */
+const CURRENCIES = {EUR:'de-AT',USD:'en-US',GBP:'en-GB',CHF:'de-CH',JPY:'ja-JP'};
+const DAY = 864e5, MONTH = 30.4375, YEAR = 365.25;
+const PRESET_CATS = ['Tech','Home','Kitchen','Clothes','Mobility','Sport','Other'];
+const $ = id => document.getElementById(id);
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } };
+const KEY = 'worth-tracker:state', SYNC_KEY = 'worth-tracker:sync', FILE = 'worth.json';
+const init = () => {
+  const st = load(KEY, null) || load('worth.state', null) || {items: load('worth.items', []), currency: load('worth.currency', 'EUR'), income: +load('worth.income', 0) || 0};
+  return {currency: 'EUR', income: 0, items: [], subs: [], wishes: [], tomb: {}, settingsU: 1, ...st};
+};
+let {currency, income, items, subs, wishes, tomb, settingsU} = init();
+let view = 'items', catFilter = '', animate = true;
+
+/* change tracking: every record carries `u` (last-changed time); deletions leave a tombstone.
+   This lets two devices merge instead of overwriting each other. */
+const allRecs = () => [...items, ...subs, ...wishes];
+const stampless = r => { const {u, ...rest} = r; return JSON.stringify(rest); };
+const snap = new Map(); let settingsSnap = '';
+function resnap() { snap.clear(); for (const r of allRecs()) { r.u ??= 1; snap.set(r.id, stampless(r)); } settingsSnap = JSON.stringify({currency, income}); }
+resnap();
+function stamp() {
+  const now = Date.now(), seen = new Set();
+  for (const r of allRecs()) { seen.add(r.id); const j = stampless(r); if (snap.get(r.id) !== j) { r.u = now; snap.set(r.id, j); } }
+  for (const id of [...snap.keys()]) if (!seen.has(id)) { tomb[id] = now; snap.delete(id); }
+  const sj = JSON.stringify({currency, income}); if (sj !== settingsSnap) { settingsU = now; settingsSnap = sj; }
+}
+function persist() { try { localStorage.setItem(KEY, JSON.stringify({currency, income, items, subs, wishes, tomb, settingsU})); } catch {} }
+function save() { stamp(); persist(); queueSync(); }
+const uid = () => crypto.randomUUID?.() ?? Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+/* ============ helpers ============ */
+const iso = d => { const z = new Date(d.getTime() - d.getTimezoneOffset()*6e4); return z.toISOString().slice(0,10) };
+const parse = s => new Date(s + 'T00:00:00');
+const today = () => parse(iso(new Date()));
+const money = (n, max) => new Intl.NumberFormat(CURRENCIES[currency], {style:'currency', currency, maximumFractionDigits: max ?? (currency==='JPY'?0:2), minimumFractionDigits: max===0?0:undefined}).format(n);
+const tick = v => money(v, v >= 100 || currency === 'JPY' ? 0 : 2);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct = v => { if (!(income > 0)) return ''; const p = v / income * 100; return (p < .1 ? '<0.1' : p < 10 ? p.toFixed(1) : Math.round(p)) + '%'; };
+const catColor = c => { if (!c) return 'var(--mute)'; let h = 0; for (const ch of c) h = (h * 31 + ch.charCodeAt(0)) % 360; return `hsl(${h} 55% 52%)`; };
+const catDot = c => c ? `<span class="cat"><i class="dot" style="background:${catColor(c)}"></i>${esc(c)}</span>` : '';
+const allCats = () => [...new Set([...PRESET_CATS, ...[...items, ...subs, ...wishes].map(x => x.cat)].filter(Boolean))];
+const stars = r => r ? `<span class="stars" title="${r}/5">${'★'.repeat(r)}<i>${'★'.repeat(5 - r)}</i></span>` : '';
+const date = d => d.toLocaleDateString(CURRENCIES[currency], {day:'numeric', month:'short', year:'numeric'});
+function duration(days) {
+  if (days < 31) return days + (days===1?' day':' days');
+  const mo = Math.round(days / MONTH), y = Math.floor(mo / 12), m = mo % 12;
+  return [y && y+(y>1?' yrs':' yr'), m && m+' mo'].filter(Boolean).join(' ');
+}
+const short = d => d < 365 ? Math.round(d) + 'd' : (d/YEAR).toFixed(d/YEAR < 10 ? 1 : 0) + 'y';
+
+/* ============ calculations ============ */
+// resale value is informational: it only reduces the cost once an item is sold or you opt in to counting it
+const countsResale = x => !!(x.sold || x.resaleOn);
+const netOf = x => Math.max(0, x.price - (countsResale(x) ? (x.resale || 0) : 0));
+const resaleTxt = x => countsResale(x) && x.resale ? ` − ${money(x.resale)} resale` : '';
+function calc(it) {
+  const end = it.end ? parse(it.end) : today();
+  const days = Math.max(1, Math.round((end - parse(it.start)) / DAY) + 1);
+  const net = netOf(it), day = net / days, uses = it.uses || 0;
+  return {days, net, day, week: day*7, month: day*MONTH, year: day*YEAR, active: !it.end,
+          uses, cpu: uses > 0 ? net / uses : null, perWeek: uses / days * 7};
+}
+function subCalc(s) {
+  const monthly = s.period === 'year' ? s.price / 12 : s.price;
+  const end = s.end ? parse(s.end) : today();
+  const days = Math.max(1, Math.round((end - parse(s.start)) / DAY) + 1);
+  return {monthly, day: monthly / MONTH, year: monthly * 12, days, paid: monthly * days / MONTH, active: !s.end};
+}
+function wishCalc(w) {
+  const keepDays = w.keep * (w.unit === 'years' ? YEAR : MONTH);
+  const net = netOf(w), day = net / keepDays;
+  return {keepDays, net, day, week: day*7, month: day*MONTH, year: day*YEAR};
+}
+function totals() {
+  const A = items.map(it => ({it, c: calc(it)}));
+  const itemsDaily = A.filter(x => x.c.active).reduce((s, x) => s + x.c.day, 0);
+  const subsMonthly = subs.filter(s => !s.end).reduce((t, s) => t + subCalc(s).monthly, 0);
+  return {A, itemsDaily, subsMonthly, subsDaily: subsMonthly / MONTH, daily: itemsDaily + subsMonthly / MONTH};
+}
+function milestone(c) {
+  if (!c.active || c.net === 0) return '';
+  const below = [10,5,2,1,.5,.25,.1,.05,.01].find(t => t < c.day);
+  return below === undefined ? '' : `Reaches ${money(below, below<1?2:0)} / day in ${duration(Math.ceil(c.net / below) - c.days)}`;
+}
+
+/* ============ rendering ============ */
+function render() {
+  const T = totals();
+  $('stats').innerHTML = `
+    <div class="stat"><small>All things, per day</small><b>${money(T.daily)}</b><i>${income > 0 ? `≈ ${pct(T.daily*MONTH)} of monthly income` : `${money(T.daily*MONTH,0)} / month`}</i></div>
+    <div class="stat"><small>Items</small><b>${money(T.itemsDaily)}</b><i>per day · ${T.A.filter(x=>x.c.active).length} in use</i></div>
+    <div class="stat"><small>Subscriptions</small><b>${money(T.subsMonthly,0)}</b><i>per month · ${subs.filter(s=>!s.end).length} active</i></div>
+    <div class="stat"><small>Best value</small><b>${T.A.length ? money(Math.min(...T.A.map(x=>x.c.day))) : '—'}</b><i>${T.A.length ? esc([...T.A].sort((a,b)=>a.c.day-b.c.day)[0].it.name) : 'add an item'}</i></div>`;
+  [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  ['items','subs','wish','insights'].forEach(v => $('v-' + v).hidden = v !== view);
+  ({items: renderItems, subs: renderSubs, wish: renderWish, insights: renderInsights})[view](T);
+  animate = false;
+}
+
+function renderItems(T) {
+  const cats = [...new Set(items.map(i => i.cat).filter(Boolean))];
+  if (catFilter && !cats.includes(catFilter)) catFilter = '';
+  $('chips').hidden = cats.length < 2;
+  $('chips').innerHTML = ['', ...cats].map(c => `<button class="chip ${c === catFilter ? 'on' : ''}" data-cat="${esc(c)}">${c ? catDot(c) : 'All'}</button>`).join('');
+
+  const q = $('q').value.trim().toLowerCase(), f = $('filter').value;
+  const rows = T.A.filter(x => x.it.name.toLowerCase().includes(q) && (!catFilter || x.it.cat === catFilter) && (f==='all' || (f==='active') === x.c.active));
+  const last = v => v ?? Infinity;
+  const sorters = {cheap:(a,b)=>a.c.day-b.c.day, exp:(a,b)=>b.c.day-a.c.day, cpu:(a,b)=>last(a.c.cpu)-last(b.c.cpu), rating:(a,b)=>(b.it.rating||0)-(a.it.rating||0),
+    new:(a,b)=>b.it.start.localeCompare(a.it.start), old:(a,b)=>a.it.start.localeCompare(b.it.start), price:(a,b)=>b.it.price-a.it.price, days:(a,b)=>b.c.days-a.c.days};
+  rows.sort(sorters[$('sort').value]);
+  const rank = [...T.A].sort((a,b) => a.c.day - b.c.day), max = Math.max(...T.A.map(x => x.c.day), 1e-4);
+  if (!rows.length) { $('list').innerHTML = `<div class="empty glass">${items.length ? '<b>No matches</b>Try another search or filter.' : '<b>Nothing here yet</b>Add something you bought to see what it really costs per day.'}</div>`; return; }
+  $('list').innerHTML = rows.map(({it, c}, i) => {
+    const r = rank.findIndex(x => x.it === it) + 1;
+    const badge = !c.active ? `<span class="tag retired">${it.sold ? 'Sold' : 'Retired'}</span>` : T.A.length > 1 && r === 1 ? '<span class="tag">Best value</span>' : T.A.length > 2 && r === T.A.length ? '<span class="tag worst">Priciest</span>' : '';
+    return `<article class="item glass ${animate ? 'pop' : ''}" data-id="${it.id}" style="animation-delay:${i*40}ms">
+      <div class="head">
+        <div><div class="name">${esc(it.name)}${badge}</div>
+          <div class="meta">${catDot(it.cat)}${it.cat ? '<span>·</span>' : ''}<span>${money(it.price)}${resaleTxt(it)} · ${duration(c.days)}</span></div></div>
+        <div class="hero"><b>${money(c.day)}</b><small>per day</small></div>
+      </div>
+      <div class="rates">
+        <div><small>Days</small><b>${c.days.toLocaleString()}</b></div>
+        <div><small>Week</small><b>${money(c.week)}</b></div>
+        <div><small>Month</small><b>${money(c.month)}</b>${income > 0 ? `<em>${pct(c.month)} of income</em>` : ''}</div>
+        <div><small>Year</small><b>${money(c.year)}</b></div>
+      </div>
+      <div class="bar"><span style="width:${Math.max(2, c.day/max*100)}%"></span></div>
+      <div class="foot">
+        <div class="uses">${c.uses > 0
+          ? `<button class="mini" data-use="-1" data-id2="${it.id}" title="Remove a use">−</button><b>${c.uses.toLocaleString()}</b> uses<button class="mini" data-use="1" data-id2="${it.id}" title="Log a use">+</button><span class="cpu">${money(c.cpu)} / use</span>`
+          : `<button class="mini" data-use="1" data-id2="${it.id}">+ Log a use</button>`}</div>
+        ${stars(it.rating)}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function renderSubs(T) {
+  const act = subs.filter(s => !s.end);
+  const html = !subs.length ? '<div class="empty glass"><b>No subscriptions yet</b>Add streaming, a gym, cloud storage — anything that bills you regularly.</div>' : `
+    <div class="sectionhead"><h2>${money(T.subsMonthly)} <span>per month</span> · ${money(T.subsMonthly*12,0)} <span>per year</span></h2><span>${income > 0 ? `recurring cost ≈ ${pct(T.subsMonthly)} of monthly income` : `${money(T.subsDaily)} per day`}</span></div>
+    <div class="table glass">${[...subs].sort((a,b)=>(!a.end===!b.end)? subCalc(b).monthly-subCalc(a).monthly : (a.end?1:-1)).map(s => { const c = subCalc(s); return `
+      <div class="srow ${c.active ? '' : 'off'}">
+        <div><div class="name">${esc(s.name)}${c.active ? '' : '<span class="tag retired">Cancelled</span>'}</div><div class="meta">${catDot(s.cat)}${s.cat ? '·' : ''} ${s.period === 'year' ? money(s.price) + ' / year' : 'monthly'} · ${duration(c.days)} · ${money(c.paid,0)} so far</div></div>
+        <div><small>Day</small><b>${money(c.day)}</b></div>
+        <div><small>Month</small><b>${money(c.monthly)}</b></div>
+        <div><small>Year</small><b>${money(c.year,0)}</b></div>
+        <div><small>Income</small><b>${pct(c.monthly) || '—'}</b></div>
+        <div class="acts"><button class="btn" data-s-toggle="${s.id}">${c.active ? 'Cancel' : 'Resume'}</button><button class="btn" data-s-edit="${s.id}">Edit</button><button class="btn danger" data-s-del="${s.id}">Delete</button></div>
+      </div>`; }).join('')}</div>`;
+  $('v-subs').innerHTML = html;
+}
+
+function renderWish(T) {
+  const html = !wishes.length ? '<div class="empty glass"><b>Nothing on your wishlist</b>Add something you are thinking of buying to see what it would really cost before you commit.</div>' :
+    `<div class="sectionhead"><h2>Wishlist</h2><span>What each purchase would cost per day, before you buy</span></div><section class="list">${wishes.map(w => {
+      const c = wishCalc(w), cmp = items.find(i => i.id === w.cmp), cc = cmp && calc(cmp), diff = cc ? (c.day - cc.day) / cc.day * 100 : 0;
+      return `<article class="item glass wish ${animate ? 'pop' : ''}">
+        <div class="head"><div><div class="name">${esc(w.name)}</div><div class="meta">${catDot(w.cat)}${w.cat ? '·' : ''} ${money(w.price)}${resaleTxt(w)} · kept ${w.keep} ${w.unit === 'years' && w.keep === 1 ? 'year' : w.unit}</div></div>
+          <div class="hero"><b>${money(c.day)}</b><small>per day</small></div></div>
+        <div class="rates">
+          <div><small>Week</small><b>${money(c.week)}</b></div>
+          <div><small>Month</small><b>${money(c.month)}</b>${income > 0 ? `<em>${pct(c.month)} of income</em>` : ''}</div>
+          <div><small>Year</small><b>${money(c.year)}</b></div>
+          <div><small>Price</small><b>${income > 0 ? pct(c.net) : money(c.net,0)}</b>${income > 0 ? `<em>${(c.net/income*MONTH).toFixed(1)} days of income</em>` : ''}</div>
+        </div>
+        <div class="note">
+          <span>Daily cost <b>${money(T.daily)}</b> → <b>${money(T.daily + c.day)}</b> (+${(c.day / (T.daily || 1) * 100).toFixed(0)}%)</span>
+          ${cc ? `<span>vs <b>${esc(cmp.name)}</b> (${money(cc.day)} / day now): <b>${Math.abs(diff).toFixed(0)}% ${diff > 0 ? 'more' : 'less'}</b> per day</span>` : ''}
+        </div>
+        <div class="foot"><span></span><div class="acts"><button class="btn" data-w-buy="${w.id}">Bought it</button><button class="btn" data-w-edit="${w.id}">Edit</button><button class="btn danger" data-w-del="${w.id}">Delete</button></div></div>
+      </article>`; }).join('')}</section>`;
+  $('v-wish').innerHTML = html;
+}
+
+/* ---- insights ---- */
+function burnSeries() {
+  const starts = [...items.map(i => i.start), ...subs.map(s => s.start)].sort(); if (!starts.length) return [];
+  const t0 = parse(starts[0]), span = Math.round((today() - t0) / DAY), step = span > 400 ? 30 : span > 90 ? 7 : 1;
+  const at = d => { const t = new Date(t0.getTime() + d * DAY); let sum = 0, n = 0;
+    for (const it of items) { if (parse(it.start) <= t && (!it.end || t <= parse(it.end))) { sum += netOf(it) / Math.max(30, Math.round((t - parse(it.start)) / DAY) + 1); n++; } }
+    for (const s of subs) { if (parse(s.start) <= t && (!s.end || t <= parse(s.end))) { sum += subCalc(s).monthly / MONTH; n++; } }
+    return {x: t.getTime(), y: sum, tip: `${date(t)} · ${money(sum)} / day · ${n} active`}; };
+  const pts = []; for (let d = 0; d < span; d += step) pts.push(at(d)); pts.push(at(span)); return pts;
+}
+function renderInsights(T) {
+  if (!items.length && !subs.length) { $('v-insights').innerHTML = '<div class="empty glass"><b>No insights yet</b>Add a few items and subscriptions and this page fills up with trends and comparisons.</div>'; return; }
+  const pts = burnSeries();
+  const catMap = {};
+  const addCat = (c, d, n = 1) => { const k = c || 'Uncategorised'; (catMap[k] ??= {d: 0, n: 0}).d += d; catMap[k].n += n; };
+  T.A.filter(x => x.c.active).forEach(x => addCat(x.it.cat, x.c.day));
+  subs.filter(s => !s.end).forEach(s => addCat(s.cat, subCalc(s).day));
+  const cats = Object.entries(catMap).sort((a,b) => b[1].d - a[1].d), cmax = cats[0]?.[1].d || 1, ctot = cats.reduce((s, [,v]) => s + v.d, 0) || 1;
+  const cpus = T.A.filter(x => x.c.cpu != null).sort((a,b) => a.c.cpu - b.c.cpu), pmax = cpus.length ? cpus[cpus.length-1].c.cpu : 1;
+  const rated = T.A.filter(x => x.it.rating);
+  const net = T.A.reduce((s, x) => s + x.c.net, 0), paidSubs = subs.reduce((s, x) => s + subCalc(x).paid, 0);
+
+  $('v-insights').innerHTML = `<div class="insights">
+    <section class="panel glass"><h3>Daily cost over time</h3><p>Everything you own and subscribe to, per day. Each purchase starts high and fades the longer you keep it (smoothed over the first 30 days).</p>
+      ${pts.length > 1 ? lineChart('trend', pts) : '<div class="hint">Needs a bit more history.</div>'}</section>
+    <div class="two-col">
+      <section class="panel glass"><h3>By category</h3><p>Where your daily cost goes right now.</p>
+        <div class="hbars">${cats.length ? cats.map(([c, v]) => `<div class="hb"><span class="lab">${c === 'Uncategorised' ? 'Uncategorised' : catDot(c)}</span><span class="track"><span style="width:${Math.max(3, v.d/cmax*100)}%;background:${c === 'Uncategorised' ? 'var(--mute)' : catColor(c)}"></span></span><span class="val"><b>${money(v.d)}</b> · ${Math.round(v.d/ctot*100)}%</span></div>`).join('') : '<span class="hint">Nothing active.</span>'}</div></section>
+      <section class="panel glass"><h3>Cost per use</h3><p>Items you log uses for, cheapest per use first.</p>
+        <div class="hbars">${cpus.length ? cpus.slice(0, 8).map(x => `<div class="hb" data-id="${x.it.id}"><span class="lab">${esc(x.it.name)}</span><span class="track"><span style="width:${Math.max(3, x.c.cpu/pmax*100)}%;background:var(--accent)"></span></span><span class="val"><b>${money(x.c.cpu)}</b> · ${x.c.uses}×</span></div>`).join('') : '<span class="hint">Tap “+ Log a use” on an item card to start.</span>'}</div></section>
+    </div>
+    <section class="panel glass"><h3>Value vs. satisfaction</h3><p>${rated.length ? 'Top-left is the sweet spot: cheap per day and well loved. Click a dot to open it.' : 'Rate your items (Worth it? 1–5 ★) to see which ones earn their cost.'}</p>
+      ${rated.length ? scatter(rated) + (items.length > rated.length ? `<div class="hint" style="margin-top:6px">${items.length - rated.length} unrated item${items.length - rated.length > 1 ? 's' : ''} not shown.</div>` : '') : ''}</section>
+    <section class="panel glass"><h3>Value tracked</h3><p>Purchase prices added up. Resale only reduces it where you sold the item or chose to count it.</p>
+      <div class="rates flat" style="border:0;margin:0;padding:0"><div><small>Items</small><b>${money(net,0)}</b></div><div><small>Subscriptions so far</small><b>${money(paidSubs,0)}</b></div><div><small>Combined</small><b>${money(net+paidSubs,0)}</b></div><div><small>Items owned</small><b>${items.length}</b></div></div></section>
+  </div>`;
+  if (pts.length > 1) hoverLine('trend');
+  wireScatter();
+}
+
+/* ---- generic charts ---- */
+const W = 580, H = 230, PL = 52, PR = 14, PT = 14, PB = 28;
+const charts = {};
+function lineChart(id, pts) {
+  const xs = pts.map(p => p.x), x0 = Math.min(...xs), x1 = Math.max(...xs), ymax = Math.max(...pts.map(p => p.y), 1e-6) * 1.08;
+  const X = x => PL + (x - x0) / (x1 - x0 || 1) * (W - PL - PR), Y = y => PT + (1 - y / ymax) * (H - PT - PB);
+  charts[id] = {pts, X, Y};
+  const path = pts.map(p => `${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join('L');
+  const grid = [0,1,2,3,4].map(i => { const v = ymax*i/4; return `<line class="grid" x1="${PL}" x2="${W-PR}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${PL-8}" y="${Y(v)+3.5}" text-anchor="end">${tick(v)}</text>`; }).join('');
+  const xt = [0,1,2,3,4].map(i => `<text x="${X(x0+(x1-x0)*i/4)}" y="${H-8}" text-anchor="${i===0?'start':i===4?'end':'middle'}">${new Date(x0+(x1-x0)*i/4).toLocaleDateString(CURRENCIES[currency], {month:'short', year:'2-digit'})}</text>`).join('');
+  return `<svg class="chart" id="${id}" viewBox="0 0 ${W} ${H}">${grid}${xt}<path class="area" d="M${path}L${X(x1)},${H-PB}L${X(x0)},${H-PB}Z"/><path class="line" d="M${path}"/>${hoverLayer()}</svg>`;
+}
+const hoverLayer = () => `<g class="hv" style="display:none"><line class="cross" y1="${PT}" y2="${H-PB}"/><circle class="pt" r="4"/><text class="tip" y="${PT+10}"></text></g><rect class="hit" x="${PL}" y="${PT}" width="${W-PL-PR}" height="${H-PT-PB}" fill="transparent"/>`;
+function hoverLine(id, fn) {
+  const svg = $(id); if (!svg) return; const ch = charts[id], hv = svg.querySelector('.hv'), hit = svg.querySelector('.hit');
+  const move = e => {
+    const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+    const p = fn ? fn(px) : ch.pts.reduce((b, q) => Math.abs(ch.X(q.x) - px) < Math.abs(ch.X(b.x) - px) ? q : b);
+    const x = ch.X(p.x), y = ch.Y(p.y), t = hv.querySelector('text');
+    hv.style.display = ''; hv.querySelectorAll('line').forEach(l => { l.setAttribute('x1', x); l.setAttribute('x2', x); });
+    const c = hv.querySelector('circle'); c.setAttribute('cx', x); c.setAttribute('cy', y);
+    t.setAttribute('x', x + (x > W/2 ? -8 : 8)); t.setAttribute('text-anchor', x > W/2 ? 'end' : 'start'); t.textContent = p.tip;
+  };
+  hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move); hit.addEventListener('pointerleave', () => hv.style.display = 'none');
+}
+function scatter(rated) {
+  const H2 = 260, xmax = Math.max(...rated.map(x => x.c.day)) * 1.15 || 1, X = v => PL + v / xmax * (W - PL - PR), Y = r => PT + (1 - (r - .5) / 5) * (H2 - PT - PB);
+  const med = [...rated.map(x => x.c.day)].sort((a,b) => a-b)[Math.floor((rated.length-1)/2)];
+  const grid = [1,2,3,4,5].map(r => `<line class="grid" x1="${PL}" x2="${W-PR}" y1="${Y(r)}" y2="${Y(r)}"/><text x="${PL-8}" y="${Y(r)+3.5}" text-anchor="end">${r}★</text>`).join('') +
+    [0,1,2,3,4].map(i => `<text x="${X(xmax*i/4)}" y="${H2-8}" text-anchor="${i===0?'start':i===4?'end':'middle'}">${tick(xmax*i/4)}</text>`).join('');
+  return `<svg class="chart" id="sc" viewBox="0 0 ${W} ${H2}">${grid}
+    <line class="cross" x1="${X(med)}" x2="${X(med)}" y1="${PT}" y2="${H2-PB}"/><line class="cross" x1="${PL}" x2="${W-PR}" y1="${Y(3)}" y2="${Y(3)}"/>
+    <text class="quad" x="${PL+6}" y="${PT+12}">cheap &amp; loved</text><text class="quad" x="${W-PR-6}" y="${PT+12}" text-anchor="end">pricey but loved</text>
+    <text class="quad" x="${PL+6}" y="${H2-PB-6}">cheap, meh</text><text class="quad" x="${W-PR-6}" y="${H2-PB-6}" text-anchor="end">costly &amp; unloved</text>
+    ${rated.map(x => `<circle class="sc" r="7" cx="${X(x.c.day)}" cy="${Y(x.it.rating)}" fill="${catColor(x.it.cat) === 'var(--mute)' ? 'var(--accent)' : catColor(x.it.cat)}" data-id="${x.it.id}" data-tip="${esc(x.it.name)} · ${money(x.c.day)} / day · ${x.it.rating}★"/>`).join('')}
+    <text class="tip" id="sc-tip" x="${W/2}" y="${H2-8}" text-anchor="middle" style="opacity:0"></text></svg>`;
+}
+function wireScatter() {
+  const svg = $('sc'); if (!svg) return; const tip = $('sc-tip');
+  svg.querySelectorAll('circle.sc').forEach(c => {
+    c.addEventListener('pointerenter', () => { tip.textContent = c.dataset.tip; tip.style.opacity = 1; tip.setAttribute('y', 14); tip.setAttribute('x', W/2); });
+    c.addEventListener('pointerleave', () => tip.style.opacity = 0);
+  });
+}
+
+/* ============ add / edit dialog ============ */
+let dtype = 'item', editing = null, formRating = 0;
+const val = id => $(id).value, num = id => parseFloat($(id).value);
+function drawRate() { $('f-rate').innerHTML = [1,2,3,4,5].map(n => `<button type="button" data-r="${n}" class="${n <= formRating ? 'on' : ''}">★</button>`).join(''); }
+function setType(t) {
+  dtype = t;
+  ['item','sub','wish'].forEach(k => $('fs-' + k).disabled = k !== t);
+  $('dtitle').textContent = (editing ? 'Edit ' : 'Add ') + {item: 'item', sub: 'subscription', wish: 'wish'}[t];
+  $('seg').hidden = !!editing;
+  [...$('seg').children].forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  preview();
+}
+function openDlg(rec, t = 'item') {
+  editing = rec ? {id: rec.id} : null; const td = iso(new Date());
+  $('cats').innerHTML = allCats().map(c => `<option value="${esc(c)}">`).join('');
+  $('f-name').value = rec?.name ?? ''; $('f-cat').value = rec?.cat ?? '';
+  if (t === 'item') {
+    $('f-price').value = rec?.price ?? ''; $('f-resale').value = rec?.resale || ''; $('f-resaleon').checked = !!rec && countsResale(rec); $('f-start').value = rec?.start ?? td; $('f-end').value = rec?.end ?? '';
+    $('f-uses').value = rec?.uses || ''; formRating = rec?.rating || 0; drawRate(); $('f-start').max = $('f-end').max = td;
+  }
+  if (t === 'sub') { $('s-price').value = rec?.price ?? ''; $('s-period').value = rec?.period ?? 'month'; $('s-start').value = rec?.start ?? td; $('s-end').value = rec?.end ?? ''; $('s-start').max = $('s-end').max = td; }
+  if (t === 'wish') {
+    $('w-price').value = rec?.price ?? ''; $('w-resale').value = rec?.resale || ''; $('w-resaleon').checked = !!rec?.resaleOn; $('w-keep').value = rec?.keep ?? 3; $('w-unit').value = rec?.unit ?? 'years';
+    $('w-cmp').innerHTML = '<option value="">None</option>' + items.map(i => `<option value="${i.id}" ${rec?.cmp === i.id ? 'selected' : ''}>${esc(i.name)}</option>`).join('');
+  }
+  if (!rec) { drawRate(); $('w-cmp').innerHTML = '<option value="">None</option>' + items.map(i => `<option value="${i.id}">${esc(i.name)}</option>`).join(''); }
+  setType(t); $('dlg').showModal(); $('f-name').focus();
+}
+function preview() {
+  const P = $('preview'), e = t => P.textContent = t;
+  if (dtype === 'item') {
+    const p = num('f-price'), s = val('f-start'); if (!(p >= 0) || !s) return e('Fill in price and date to preview.');
+    const c = calc({price: p, resale: num('f-resale') || 0, resaleOn: $('f-resaleon').checked, start: s, end: val('f-end')});
+    e(`${c.days.toLocaleString()} days (${duration(c.days)}) → ${money(c.day)} / day · ${money(c.month)} / month`);
+  } else if (dtype === 'sub') {
+    const p = num('s-price'); if (!(p >= 0)) return e('Enter the price to preview.');
+    const m = val('s-period') === 'year' ? p / 12 : p; e(`${money(m)} / month · ${money(m / MONTH)} / day · ${money(m * 12, 0)} / year`);
+  } else {
+    const p = num('w-price'), k = num('w-keep'); if (!(p >= 0) || !(k > 0)) return e('Enter a price and how long you would keep it.');
+    const c = wishCalc({price: p, resale: num('w-resale') || 0, resaleOn: $('w-resaleon').checked, keep: k, unit: val('w-unit')}); e(`${money(c.day)} / day · ${money(c.month)} / month${income > 0 ? ` · ${pct(c.month)} of income` : ''}`);
+  }
+}
+const put = (arr, data) => { if (editing) Object.assign(arr.find(x => x.id === editing.id), data); else arr.push({id: uid(), ...data}); };
+$('form').onsubmit = e => {
+  const name = val('f-name').trim(), cat = val('f-cat').trim();
+  if (dtype === 'item') {
+    if (val('f-end') && val('f-end') < val('f-start')) { e.preventDefault(); return $('preview').textContent = 'End date must be after the start date.'; }
+    put(items, {name, cat, price: num('f-price'), resale: num('f-resale') || 0, resaleOn: $('f-resaleon').checked, sold: !!(editing && items.find(x => x.id === editing.id)?.sold && val('f-end') && $('f-resaleon').checked), start: val('f-start'), end: val('f-end') || null, uses: parseInt(val('f-uses')) || 0, rating: formRating});
+  } else if (dtype === 'sub') {
+    if (val('s-end') && val('s-end') < val('s-start')) { e.preventDefault(); return $('preview').textContent = 'Cancel date must be after the start date.'; }
+    put(subs, {name, cat, price: num('s-price'), period: val('s-period'), start: val('s-start'), end: val('s-end') || null});
+  } else put(wishes, {name, cat, price: num('w-price'), resale: num('w-resale') || 0, resaleOn: $('w-resaleon').checked, keep: num('w-keep'), unit: val('w-unit'), cmp: val('w-cmp')});
+  save(); render();
+};
+$('add').onclick = () => openDlg(null, {items: 'item', subs: 'sub', wish: 'wish', insights: 'item'}[view]);
+$('cancel').onclick = () => $('dlg').close();
+$('seg').onclick = e => { const t = e.target.dataset.t; if (t) { setType(t); openDlg_fill(t); } };
+function openDlg_fill(t) { if (t === 'wish' && !$('w-cmp').options.length) $('w-cmp').innerHTML = '<option value="">None</option>' + items.map(i => `<option value="${i.id}">${esc(i.name)}</option>`).join(''); }
+$('f-rate').onclick = e => { const n = +e.target.dataset.r; if (n) { formRating = formRating === n ? 0 : n; drawRate(); } };
+['f-price','f-resale','f-resaleon','w-resaleon','f-start','f-end','s-price','s-period','w-price','w-resale','w-keep','w-unit'].forEach(id => $(id).addEventListener('input', preview));
+
+/* ============ detail dialog ============ */
+let det = null, dTab = 'overview', extra = 365;
+const HORIZONS = [[0,'Now'],[90,'+3 mo'],[180,'+6 mo'],[365,'+1 yr'],[730,'+2 yr'],[1825,'+5 yr']];
+const cell = (l, v, e = '') => `<div><small>${l}</small><b>${v}</b>${e ? `<em>${e}</em>` : ''}</div>`;
+function openDetail(id) { det = items.find(i => i.id === id); if (!det) return; dTab = 'overview'; extra = calc(det).active ? 365 : 0; buildDetail(); if (!$('dlg2').open) $('dlg2').showModal(); }
+function buildDetail() {
+  const c = calc(det), tabs = [['overview','Overview'], ...(c.active && c.net > 0 ? [['prognosis','Prognosis'], ['sell','Sell']] : [])];
+  if (!tabs.some(t => t[0] === dTab)) dTab = 'overview';
+  $('d-body').innerHTML = `
+    <div class="dhead"><div><div class="name">${esc(det.name)}${c.active ? '' : `<span class="tag retired">${det.sold ? 'Sold' : 'Retired'}</span>`}</div>
+      <div class="meta">${catDot(det.cat)}${det.cat ? '·' : ''} ${money(det.price)}${resaleTxt(det)}${det.resale && !countsResale(det) ? ` <span title="Not counted in the cost">(resale ${money(det.resale)} not counted)</span>` : ''} · since ${det.start}${c.active ? '' : ` · until ${det.end}`}</div></div>
+      <div class="row"><button class="btn" id="d-edit">Edit</button><button class="btn primary" id="d-close">Done</button></div></div>
+    ${tabs.length > 1 ? `<div class="seg" id="d-tabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${k === dTab ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+    <div id="d-pane"></div>`;
+  $('d-close').onclick = () => $('dlg2').close();
+  $('d-edit').onclick = () => { $('dlg2').close(); openDlg(det, 'item'); };
+  if ($('d-tabs')) $('d-tabs').onclick = e => { if (e.target.dataset.k) { dTab = e.target.dataset.k; [...$('d-tabs').children].forEach(b => b.classList.toggle('on', b.dataset.k === dTab)); showPane(); } };
+  showPane();
+}
+const showPane = () => ({overview: paneOverview, prognosis: panePrognosis, sell: paneSell})[dTab]();
+
+function paneOverview() {
+  const c = calc(det);
+  $('d-pane').innerHTML = `
+    <div class="rates five">${cell('Days', c.days.toLocaleString(), duration(c.days))}${cell('Per day', money(c.day))}${cell('Week', money(c.week))}${cell('Month', money(c.month), pct(c.month) && pct(c.month) + ' of income')}${cell('Year', money(c.year))}</div>
+    <div class="dsec"><h3>Usage &amp; value</h3><div class="inline">
+      <div class="uses">${c.uses > 0 ? `<button class="mini" data-duse="-1">−</button><b>${c.uses.toLocaleString()}</b> uses<button class="mini" data-duse="1">+</button>` : `<button class="mini" data-duse="1">+ Log a use</button>`}</div>
+      ${c.cpu != null ? `<span><b>${money(c.cpu)}</b> <span class="hint">per use</span></span><span class="hint">${c.perWeek.toFixed(1)} uses / week</span>` : '<span class="hint">Log uses to see what each one really costs.</span>'}
+      <span class="rate" id="d-rate" style="margin-left:auto">${[1,2,3,4,5].map(n => `<button data-r="${n}" class="${n <= (det.rating||0) ? 'on' : ''}" title="Worth it? ${n}/5">★</button>`).join('')}</span></div></div>
+    ${c.net > 0 ? `<div class="dsec"><h3>Relative to your income</h3>${incomeCells(c, 0)}</div><div class="dsec"><h3>Cost per day over time</h3>${chart1(c, 0)}</div>` : '<div class="dsec hint">Net cost is zero (resale covers the price), so there is nothing to chart.</div>'}
+    <div class="dsec row">${c.active ? '<button class="btn line" id="d-retire">Retire</button>' : '<button class="btn line" id="d-resume">Back in use</button>'}<button class="btn danger" id="d-del">Delete</button></div>`;
+  const P = $('d-pane');
+  P.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.duse) { det.uses = Math.max(0, (det.uses || 0) + +b.dataset.duse); save(); render(); paneOverview(); }
+    else if (b.dataset.r) { det.rating = det.rating === +b.dataset.r ? 0 : +b.dataset.r; save(); render(); paneOverview(); }
+    else if (b.id === 'd-retire') { det.end = iso(new Date()); save(); render(); buildDetail(); }
+    else if (b.id === 'd-resume') { det.end = null; det.sold = false; extra = 365; save(); render(); buildDetail(); }
+    else if (b.id === 'd-del' && confirm(`Delete "${det.name}"?`)) { items = items.filter(i => i !== det); save(); render(); $('dlg2').close(); }
+    else if (b.id === 'd-addinc') { $('dlg2').close(); openSettings(); }
+  };
+  if (c.net > 0) hoverLine('c1', px => cpdPoint(c, 0, px));
+}
+function incomeCells(c, ex) {
+  if (!(income > 0)) return '<div class="hint">Set your monthly income in Settings to see this relative to what you earn. <button class="btn line" id="d-addinc">Open settings</button></div>';
+  const p = c.net / income, m2 = c.net / (c.days + ex) * MONTH;
+  const price = cell('Price', pct(c.net), p >= 1 ? `${p.toFixed(1)} months of income` : `${(p*MONTH).toFixed(1)} days of income`);
+  return `<div class="rates ${ex ? 'three' : 'two'} flat">${price}${cell('Monthly cost now', pct(c.month), money(c.month) + ' / mo')}${ex ? cell('After +' + duration(ex), pct(m2), money(m2) + ' / mo') : ''}</div>`;
+}
+
+/* item cost curve */
+function geom(c, ex) {
+  const now = c.days, end = Math.max(now + ex, 2), x0 = Math.min(Math.max(1, Math.floor(now / 4)), end - 1), ymax = c.net / x0;
+  return {now, end, x0, ymax, X: d => PL + (d - x0) / (end - x0) * (W - PL - PR), Y: v => PT + (1 - v / ymax) * (H - PT - PB)};
+}
+function cpdPoint(c, ex, px) {
+  const g = geom(c, ex), d = Math.min(g.end, Math.max(g.x0, g.x0 + (px - PL) / (W - PL - PR) * (g.end - g.x0))), dd = Math.max(1, Math.round(d));
+  const v = c.net / dd; charts.c1 = {X: g.X, Y: g.Y};
+  return {x: dd, y: v, tip: `day ${dd.toLocaleString()} · ${money(v)}${dd > g.now ? ' (projected)' : ''}`};
+}
+function chart1(c, ex) {
+  const g = geom(c, ex), pts = (a, b) => Array.from({length: 61}, (_, i) => { const d = a + (b - a) * i / 60; return `${g.X(d).toFixed(1)},${g.Y(c.net / d).toFixed(1)}`; });
+  const hist = pts(g.x0, g.now), fut = c.active && g.end > g.now ? pts(g.now, g.end) : [];
+  charts.c1 = {X: g.X, Y: g.Y};
+  const grid = [0,1,2,3,4].map(i => { const v = g.ymax * i / 4; return `<line class="grid" x1="${PL}" x2="${W-PR}" y1="${g.Y(v)}" y2="${g.Y(v)}"/><text x="${PL-8}" y="${g.Y(v)+3.5}" text-anchor="end">${tick(v)}</text>`; }).join('');
+  const xt = [0,1,2,3,4].map(i => { const d = g.x0 + (g.end - g.x0) * i / 4; return `<text x="${g.X(d)}" y="${H-8}" text-anchor="${i===0?'start':i===4?'end':'middle'}">${short(d)}</text>`; }).join('');
+  const nx = g.X(g.now), ny = g.Y(c.net / g.now);
+  return `<svg class="chart" id="c1" viewBox="0 0 ${W} ${H}">${grid}${xt}
+    <path class="area" d="M${hist.join('L')}L${nx},${H-PB}L${g.X(g.x0)},${H-PB}Z"/><path class="line" d="M${hist.join('L')}"/>${fut.length ? `<path class="proj" d="M${fut.join('L')}"/>` : ''}
+    <circle class="pt" cx="${nx}" cy="${ny}" r="4.5"/><text x="${nx}" y="${ny-10}" text-anchor="${nx > W-90 ? 'end' : 'middle'}" class="tip">${c.active ? 'today ' : ''}${money(c.net/g.now)}</text>${hoverLayer()}</svg>`;
+}
+
+/* prognosis */
+function panePrognosis() {
+  const c = calc(det);
+  $('d-pane').innerHTML = `
+    <div class="dsec" style="margin-top:18px"><div class="slide"><span>If you keep it another</span><b id="d-extra"></b></div>
+      <input type="range" id="d-range" min="0" max="1825" step="1">
+      <div class="chiprow" id="d-chips">${HORIZONS.slice(1).map(([d, l]) => `<button class="btn" data-x="${d}">${l}</button>`).join('')}</div></div>
+    <div class="rates five" id="d-rates"></div>
+    <div class="preview" id="d-saving" style="margin-top:14px"></div>
+    <div class="dsec"><h3>Per use</h3><div class="hint" id="d-cpu"></div></div>
+    <div class="dsec"><h3>Relative to your income</h3><div id="d-inc"></div></div>
+    <div class="dsec"><h3>Goal</h3><div class="target">I want it at <input id="d-target" type="number" min="0.01" step="0.01" value="${Math.max(.01, Math.round(c.day*50)/100)}"> ${currency} / day → <b id="d-tres"></b></div></div>
+    <div class="dsec"><h3>Cost per day over time</h3><div id="d-c1"></div></div>
+    <div class="dsec"><h3>If you keep it longer</h3><div id="d-c2"></div></div>`;
+  $('d-range').oninput = e => { extra = +e.target.value; updatePrognosis(); };
+  $('d-chips').onclick = e => { if (e.target.dataset.x) { extra = +e.target.dataset.x; updatePrognosis(); } };
+  $('d-target').oninput = updateTarget;
+  $('d-c2').onclick = e => { const b = e.target.closest('[data-x]'); if (b) { extra = +b.dataset.x; updatePrognosis(); } };
+  $('d-pane').onclick = e => { if (e.target.id === 'd-addinc') { $('dlg2').close(); openSettings(); } };
+  updatePrognosis();
+}
+function updatePrognosis() {
+  const c = calc(det), T = c.days + extra, d2 = c.net / T;
+  $('d-extra').textContent = extra ? '+ ' + duration(extra) : 'no extra time'; $('d-range').value = extra;
+  [...$('d-chips').children].forEach(b => b.classList.toggle('on', +b.dataset.x === extra));
+  $('d-rates').innerHTML = extra
+    ? cell('Days', T.toLocaleString(), `now ${c.days.toLocaleString()}`) + cell('Per day', money(d2), `now ${money(c.day)}`) + cell('Week', money(d2*7), `now ${money(c.week)}`) + cell('Month', money(d2*MONTH), `now ${money(c.month)}`) + cell('Year', money(d2*YEAR), `now ${money(c.year)}`)
+    : cell('Days', c.days.toLocaleString(), duration(c.days)) + cell('Per day', money(c.day)) + cell('Week', money(c.week)) + cell('Month', money(c.month)) + cell('Year', money(c.year));
+  const drop = c.day - d2;
+  $('d-saving').textContent = extra ? `${money(d2)} / day after ${duration(T)} — ${money(drop)} less per day (−${Math.round(drop/c.day*100)}%), about ${money(drop*YEAR,0)} a year cheaper.` : 'Drag the slider or pick a horizon to see how the price per day shrinks.';
+  $('d-cpu').textContent = c.uses > 0 && extra ? (() => { const u2 = c.uses + c.perWeek * extra / 7; return `At ${c.perWeek.toFixed(1)} uses / week you'd reach ~${Math.round(u2).toLocaleString()} uses, so ${money(c.net / u2)} per use (now ${money(c.cpu)}).`; })()
+    : c.uses > 0 ? `Currently ${money(c.cpu)} per use over ${c.uses.toLocaleString()} uses.` : 'Log uses on the Overview tab to project cost per use.';
+  $('d-inc').innerHTML = incomeCells(c, extra);
+  updateTarget();
+  $('d-c1').innerHTML = chart1(c, extra); hoverLine('c1', px => cpdPoint(c, extra, px));
+  $('d-c2').innerHTML = chart2(c);
+}
+function updateTarget() {
+  const c = calc(det), t = parseFloat($('d-target').value);
+  if (!(t > 0)) { $('d-tres').textContent = '—'; return; }
+  const D = Math.ceil(c.net / t); if (D <= c.days) { $('d-tres').textContent = 'already there'; return; }
+  $('d-tres').textContent = `in ${duration(D - c.days)} · ${date(new Date(today().getTime() + (D - c.days) * DAY))}`;
+}
+function chart2(c) {
+  const h = 190, bw = (W - PL - PR) / HORIZONS.length, top = 26, base = h - 26, max = c.net / c.days;
+  return `<svg class="chart" viewBox="0 0 ${W} ${h}">${HORIZONS.map(([d, l], i) => {
+    const v = c.net / (c.days + d), bh = Math.max(3, v / max * (base - top)), x = PL + i * bw + bw * .18;
+    return `<g data-x="${d}"><rect class="col ${d === extra ? 'on' : ''}" data-x="${d}" x="${x}" y="${base-bh}" width="${bw*.64}" height="${bh}" rx="8"/>
+      <text class="val" x="${x+bw*.32}" y="${base-bh-7}" text-anchor="middle">${money(v)}</text><text x="${x+bw*.32}" y="${h-8}" text-anchor="middle">${l}</text></g>`; }).join('')}</svg>`;
+}
+
+/* what if I sold it now */
+function paneSell() {
+  const c = calc(det);
+  $('d-pane').innerHTML = `<div class="dsec" style="margin-top:18px"><h3>What if I sold it today?</h3><p class="hint" style="margin:0 0 10px">A what-if only — nothing changes until you mark it as sold.</p>
+    <div class="target">I'd sell it for <input id="d-sell" type="number" min="0" step="1" value="${det.resale || Math.round(det.price * .3)}"> ${currency}</div></div>
+    <div class="rates three" id="d-sellres" style="margin-top:18px"></div>
+    <div class="preview" id="d-selltxt" style="margin-top:14px"></div>
+    <div class="dsec row"><button class="btn primary" id="d-dosell">Mark as sold</button><span class="hint">Retires the item today and counts the sale price against its cost.</span></div>`;
+  $('d-sell').oninput = updateSell;
+  $('d-dosell').onclick = () => { det.resale = Math.max(0, parseFloat($('d-sell').value) || 0); det.sold = true; det.resaleOn = true; det.end = iso(new Date()); save(); render(); dTab = 'overview'; buildDetail(); };
+  updateSell();
+}
+function updateSell() {
+  const c = calc(det), sale = Math.max(0, parseFloat($('d-sell').value) || 0), net = Math.max(0, det.price - sale), day = net / c.days;
+  $('d-sellres').innerHTML = cell('Net cost', money(net), `now ${money(c.net)}`) + cell('Per day', money(day), `now ${money(c.day)}`) + (c.uses > 0 ? cell('Per use', money(net / c.uses), `now ${money(c.cpu)}`) : cell('Of price back', Math.round(sale / det.price * 100) + '%'));
+  $('d-selltxt').textContent = `Sold today for ${money(sale)}, you'd have paid ${money(day)} a day for ${duration(c.days)}${day < c.day ? ` — ${money(c.day - day)} less per day than you're currently counting.` : '.'}`;
+}
+
+/* ============ settings, import/export ============ */
+function openSettings() {
+  $('s-cur').innerHTML = Object.keys(CURRENCIES).map(c => `<option ${c === currency ? 'selected' : ''}>${c}</option>`).join('');
+  $('s-income').value = income || ''; renderSync(); $('dlg3').showModal();
+}
+$('settings').onclick = openSettings;
+$('s-done').onclick = () => $('dlg3').close();
+$('s-cur').onchange = e => { currency = e.target.value; save(); render(); };
+$('s-income').oninput = e => { income = Math.max(0, parseFloat(e.target.value) || 0); save(); render(); };
+$('clear').onclick = () => { if (confirm('Delete all items, subscriptions and wishes?' + (syncCfg ? ' This also deletes them from your synced repo.' : '') + ' This cannot be undone.')) { items = []; subs = []; wishes = []; income = 0; save(); $('dlg3').close(); render(); } };
+$('export').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({currency, income, items, subs, wishes}, null, 2)], {type: 'application/json'}));
+  a.download = `worth-${iso(new Date())}.json`; a.click();
+};
+$('import').onclick = () => $('file').click();
+$('file').onchange = async e => {
+  try {
+    const d = JSON.parse(await e.target.files[0].text()); if (!Array.isArray(d.items)) throw 0;
+    items = d.items; subs = d.subs || []; wishes = d.wishes || []; income = +d.income || 0; if (CURRENCIES[d.currency]) currency = d.currency;
+    save(); $('dlg3').close(); render();
+  } catch { alert('That file is not a valid Worth backup.'); }
+  e.target.value = '';
+};
+
+/* ============ GitHub sync (private repo, one JSON file) ============ */
+let syncCfg = load(SYNC_KEY, null), syncSt = {s: 'idle', msg: '', at: null}, syncing = false, again = false, syncTimer = null;
+const byId = (a, b) => a.id < b.id ? -1 : 1;
+const payload = () => ({version: 1, settings: {currency, income, u: settingsU}, items, subs, wishes, tomb});
+const canon = p => JSON.stringify([p.settings, [...(p.items||[])].sort(byId), [...(p.subs||[])].sort(byId), [...(p.wishes||[])].sort(byId), Object.entries(p.tomb||{}).sort()]);
+const b64enc = str => { const bytes = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(bin); };
+const b64dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
+
+// newest change wins per record; a tombstone newer than the record deletes it. Returns true if the result differs from `remote`.
+function merge(remote) {
+  const R = remote || {}, tombs = {...tomb};
+  for (const [id, t] of Object.entries(R.tomb || {})) tombs[id] = Math.max(tombs[id] || 0, t);
+  const pick = (local, theirs) => { const m = new Map(); for (const r of [...(theirs || []), ...local]) { const p = m.get(r.id); if (!p || (r.u || 0) > (p.u || 0)) m.set(r.id, r); } return [...m.values()].filter(r => (tombs[r.id] || 0) <= (r.u || 0)); };
+  items = pick(items, R.items); subs = pick(subs, R.subs); wishes = pick(wishes, R.wishes); tomb = tombs;
+  if (R.settings && (R.settings.u || 0) > settingsU) { if (CURRENCIES[R.settings.currency]) currency = R.settings.currency; income = +R.settings.income || 0; settingsU = R.settings.u; }
+  resnap();
+  if (det) det = items.find(i => i.id === det.id) ?? det;
+  return !remote || canon(payload()) !== canon(R);
+}
+async function gh(path, opts = {}) {
+  return fetch('https://api.github.com' + path, {cache: 'no-store', ...opts, headers: {Authorization: 'Bearer ' + syncCfg.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.headers || {})}});
+}
+async function apiError(r) {
+  let m = ''; try { m = (await r.json()).message; } catch {}
+  return new Error(r.status === 401 ? 'The token was rejected or has expired.' : r.status === 403 ? 'The token lacks permission (needs Contents: Read and write on that repo).' : r.status === 404 ? 'Repository not found, or the token has no access to it.' : `GitHub error ${r.status}${m ? ': ' + m : ''}`);
+}
+function setSync(s, msg = '') { syncSt = {s, msg, at: s === 'ok' ? Date.now() : syncSt.at}; paintSync(); }
+function paintSync() {
+  const b = $('syncstat'); b.hidden = !syncCfg; if (!syncCfg) return;
+  b.textContent = {syncing: '↻ Syncing…', ok: '✓ Synced', error: '⚠ Sync issue', idle: '☁ Sync'}[syncSt.s];
+  b.title = syncSt.s === 'error' ? syncSt.msg : syncSt.at ? 'Last synced ' + new Date(syncSt.at).toLocaleTimeString() : 'Not synced yet';
+  renderSync();
+}
+function renderSync() {
+  $('sy-form').style.display = syncCfg ? 'none' : 'grid'; $('sy-on').style.display = syncCfg ? 'grid' : 'none';
+  if (syncCfg) { $('sy-name').textContent = syncCfg.repo; $('sy-state').textContent = syncSt.s === 'syncing' ? 'Syncing…' : syncSt.s === 'ok' ? 'Up to date · ' + new Date(syncSt.at).toLocaleTimeString() : syncSt.s === 'error' ? 'Last attempt failed — changes are safe on this device.' : 'Waiting for first sync…'; }
+  const m = $('sy-msg'); m.className = syncSt.s === 'error' ? 'warnline' : ''; if (syncSt.s === 'error' || !syncCfg) { if (syncSt.s === 'error') m.textContent = syncSt.msg; } else m.textContent = '';
+}
+function queueSync() { if (!syncCfg) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, 1500); }
+async function sync() {
+  if (!syncCfg) return;
+  if (syncing) { again = true; return; }
+  syncing = true; clearTimeout(syncTimer); setSync('syncing');
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const r = await gh(`/repos/${syncCfg.repo}/contents/${FILE}`);
+      let sha, remote = null;
+      if (r.status === 200) { const j = await r.json(); sha = j.sha; remote = JSON.parse(b64dec(j.content)); }
+      else if (r.status !== 404) throw await apiError(r);
+      const differs = merge(remote); persist(); render();
+      if (!differs) break;
+      const put = await gh(`/repos/${syncCfg.repo}/contents/${FILE}`, {method: 'PUT', body: JSON.stringify({message: 'worth: sync', content: b64enc(JSON.stringify(payload(), null, 1)), ...(sha ? {sha} : {})})});
+      if (put.ok) break;
+      if (put.status === 409 || put.status === 422) { if (attempt === 2) throw new Error('Another device changed the data at the same time — will retry.'); continue; }
+      throw await apiError(put);
+    }
+    setSync('ok');
+  } catch (e) {
+    setSync('error', e instanceof TypeError ? 'Offline — changes are saved on this device and will sync when you are back online.' : e.message);
+    syncTimer = setTimeout(sync, 60000);
+  } finally { syncing = false; if (again) { again = false; sync(); } }
+}
+$('sy-connect').onclick = async () => {
+  const repo = $('sy-repo').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, ''), token = $('sy-token').value.trim(), m = $('sy-msg');
+  const fail = t => { m.className = 'warnline'; m.textContent = t; };
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return fail('Enter the repo as owner/name, e.g. yourname/worth-data.');
+  if (!token) return fail('Paste an access token.');
+  m.className = 'hint'; m.textContent = 'Checking…'; syncCfg = {repo, token};
+  try {
+    const r = await gh(`/repos/${repo}`); if (!r.ok) throw await apiError(r);
+    const info = await r.json();
+    if (!info.private) throw new Error('This repository is public — your data would be visible to everyone. Use a private repository.');
+    if (info.permissions && !info.permissions.push) throw new Error('The token is read-only. It needs Contents: Read and write.');
+  } catch (e) { syncCfg = load(SYNC_KEY, null); return fail(e instanceof TypeError ? 'Could not reach GitHub — are you online?' : e.message); }
+  try { localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg)); } catch {}
+  $('sy-token').value = ''; m.textContent = ''; paintSync(); sync();
+};
+$('sy-now').onclick = sync;
+$('sy-disc').onclick = () => { if (confirm('Disconnect sync? Your data stays on this device and in the repo.')) { try { localStorage.removeItem(SYNC_KEY); } catch {} syncCfg = null; clearTimeout(syncTimer); syncSt = {s: 'idle', msg: '', at: null}; paintSync(); } };
+document.addEventListener('visibilitychange', () => { if (!document.hidden && syncCfg && (!syncSt.at || Date.now() - syncSt.at > 20000)) sync(); });
+addEventListener('online', () => sync());
+
+/* ============ events ============ */
+$('tabs').onclick = e => { const v = e.target.dataset.v; if (v && v !== view) { view = v; animate = true; render(); } };
+document.querySelector('.wrap').addEventListener('click', e => {
+  const t = e.target, b = t.closest('button');
+  if (b?.dataset.use) { const it = items.find(i => i.id === b.dataset.id2); it.uses = Math.max(0, (it.uses || 0) + +b.dataset.use); save(); render(); return; }
+  if (b?.dataset.cat !== undefined && b.classList.contains('chip')) { catFilter = b.dataset.cat; render(); return; }
+  if (b?.dataset.sToggle) { const s = subs.find(x => x.id === b.dataset.sToggle); s.end = s.end ? null : iso(new Date()); save(); render(); return; }
+  if (b?.dataset.sEdit) return openDlg(subs.find(x => x.id === b.dataset.sEdit), 'sub');
+  if (b?.dataset.sDel) { const s = subs.find(x => x.id === b.dataset.sDel); if (confirm(`Delete "${s.name}"?`)) { subs = subs.filter(x => x !== s); save(); render(); } return; }
+  if (b?.dataset.wEdit) return openDlg(wishes.find(x => x.id === b.dataset.wEdit), 'wish');
+  if (b?.dataset.wDel) { const w = wishes.find(x => x.id === b.dataset.wDel); if (confirm(`Remove "${w.name}" from your wishlist?`)) { wishes = wishes.filter(x => x !== w); save(); render(); } return; }
+  if (b?.dataset.wBuy) { const w = wishes.find(x => x.id === b.dataset.wBuy); items.push({id: uid(), name: w.name, cat: w.cat, price: w.price, resale: 0, start: iso(new Date()), end: null, uses: 0, rating: 0}); wishes = wishes.filter(x => x !== w); save(); view = 'items'; animate = true; render(); return; }
+  const circle = t.closest('circle.sc'), hb = t.closest('.hb[data-id]'), card = t.closest('.item[data-id]');
+  const id = circle?.dataset.id || hb?.dataset.id || (!b && card?.dataset.id) || (b && b.closest('.item[data-id]') && !b.dataset.use ? card?.dataset.id : null);
+  if (id) openDetail(id);
+});
+['q','sort','filter'].forEach(id => $(id).addEventListener('input', render));
+render();
+paintSync();
+if (syncCfg) sync();
+</script>
+</body>
+</html>

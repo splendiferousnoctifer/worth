@@ -1,0 +1,4 @@
+# never publish personal data
+*.json
+.claude/
+.DS_Store
