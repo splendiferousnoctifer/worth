@@ -17,7 +17,7 @@ The site contains code only. Your data is never committed here (`.gitignore` blo
 Data is saved in the browser automatically. To keep it safe and share it across devices:
 
 1. Create a **private** repo, e.g. `worth-data`, with a README so it isn't empty.
-2. Create a fine-grained token at <https://github.com/settings/personal-access-tokens/new>:
+2. Create a fine-grained token at <https://github.com/settings/personal-access-tokens/new?name=worth-sync&description=Sync%20data%20for%20the%20worth%20app&target_name=splendiferousnoctifer&expires_in=90&contents=write> (prefilled; you only pick the repository):
    *Only select repositories* → `worth-data`, permission **Contents: Read and write**, with an expiry.
 3. In the app: Settings → *Sync across devices* → enter `you/worth-data` and the token → Connect.
 

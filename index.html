@@ -339,7 +339,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0 10px}
       <div id="sy-form" class="grid" style="display:grid;gap:12px">
         <label>Private GitHub repo<input id="sy-repo" placeholder="yourname/worth-data" autocomplete="off" spellcheck="false"></label>
         <label>Access token<input id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
-        <div class="hint">Create a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a> for <b>only that repo</b> with <b>Contents: Read and write</b>. It is kept in this browser only. The repo must be private — public repos are refused.</div>
+        <div class="hint">Create a <a href="https://github.com/settings/personal-access-tokens/new?name=worth-sync&amp;description=Sync%20data%20for%20the%20worth%20app&amp;target_name=splendiferousnoctifer&amp;expires_in=90&amp;contents=write" target="_blank" rel="noopener">fine-grained token</a> for <b>only that repo</b> with <b>Contents: Read and write</b>. It is kept in this browser only. The repo must be private — public repos are refused.</div>
         <div><button class="btn line" id="sy-connect">Connect &amp; sync</button></div>
       </div>
       <div id="sy-on" style="display:none;gap:10px">
