@@ -14,13 +14,17 @@ The site contains code only. Your data is never committed here (`.gitignore` blo
 
 ## Keep your data (sync)
 
-Data is saved in the browser automatically. To keep it safe and share it across devices:
+Data is saved in the browser automatically. For backup and multi-device sync the app uses a [Supabase](https://supabase.com) project:
 
-1. Create a **private** repo, e.g. `worth-data`, with a README so it isn't empty.
-2. Create a fine-grained token at <https://github.com/settings/personal-access-tokens/new?name=worth-sync&description=Sync%20data%20for%20the%20worth%20app&target_name=splendiferousnoctifer&expires_in=90&contents=write> (prefilled; you only pick the repository):
-   *Only select repositories* → `worth-data`, permission **Contents: Read and write**, with an expiry.
-3. In the app: Settings → *Sync across devices* → enter `you/worth-data` and the token → Connect.
+- Sign in with your email (a one-time link, no password) in **Settings → Sync across devices**.
+- Your data is stored as one row in `public.worth_data`, protected by row-level security so only your account can read or write it.
+- Edits from several devices are merged per record (newest change wins) and deletions are remembered.
+- The URL and publishable key in `index.html` are meant to be public. The page's Content-Security-Policy only allows requests to that Supabase project.
 
-The app keeps one file, `worth.json`, in that repo. Changes are pushed a moment after you make them and pulled when you open the app. Edits from two devices are merged per record (newest change wins). The app refuses to connect to a public repo. The page's Content-Security-Policy only allows requests to `api.github.com`, and the token stays in your browser's local storage.
+### One-time Supabase setup
+
+1. Create a project, then run the SQL in `supabase/schema.sql`.
+2. Authentication → URL Configuration: set **Site URL** to your Pages URL and add it (and `http://localhost:8791`) under **Redirect URLs**.
+3. After you have signed in once, turn off *Authentication → Sign In / Providers → Allow new users to sign up* so nobody else can create accounts.
 
 Export / Import in Settings still works as a manual backup.

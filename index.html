@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://api.github.com; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src https://gaagfxtdoylsnlzwnugn.supabase.co; base-uri 'none'">
 <title>Worth — cost per day</title>
 <style>
 :root{
@@ -336,16 +336,15 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:4px 0 10px}
     <div class="hint">Income is only a yardstick, so you can see how big a purchase is relative to what you earn. This app isn't a budget or spending plan. Data stays in this browser unless you turn on sync below.</div>
     <div class="syncbox">
       <h3>Sync across devices <span>(optional)</span></h3>
-      <div id="sy-form" class="grid" style="display:grid;gap:12px">
-        <label>Private GitHub repo<input id="sy-repo" placeholder="yourname/worth-data" autocomplete="off" spellcheck="false"></label>
-        <label>Access token<input id="sy-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
-        <div class="hint">Create a <a href="https://github.com/settings/personal-access-tokens/new?name=worth-sync&amp;description=Sync%20data%20for%20the%20worth%20app&amp;target_name=splendiferousnoctifer&amp;expires_in=90&amp;contents=write" target="_blank" rel="noopener">fine-grained token</a> for <b>only that repo</b> with <b>Contents: Read and write</b>. It is kept in this browser only. The repo must be private — public repos are refused.</div>
-        <div><button class="btn line" id="sy-connect">Connect &amp; sync</button></div>
+      <div id="sy-form" style="display:grid;gap:12px">
+        <label>Email<input id="sy-email" type="email" placeholder="you@example.com" autocomplete="email" spellcheck="false"></label>
+        <div><button class="btn line" id="sy-connect">Email me a sign-in link</button></div>
+        <div class="hint">No password: you get a one-time link by email. Your data is kept in a private database row that only your account can read.</div>
       </div>
       <div id="sy-on" style="display:none;gap:10px">
-        <div>Connected to <b id="sy-name"></b></div>
+        <div>Signed in as <b id="sy-name"></b></div>
         <div class="hint" id="sy-state"></div>
-        <div class="row"><button class="btn line" id="sy-now">Sync now</button><button class="btn" id="sy-disc">Disconnect</button></div>
+        <div class="row"><button class="btn line" id="sy-now">Sync now</button><button class="btn" id="sy-disc">Sign out</button></div>
       </div>
       <div id="sy-msg"></div>
     </div>
@@ -366,7 +365,7 @@ const DAY = 864e5, MONTH = 30.4375, YEAR = 365.25;
 const PRESET_CATS = ['Tech','Home','Kitchen','Clothes','Mobility','Sport','Other'];
 const $ = id => document.getElementById(id);
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } };
-const KEY = 'worth-tracker:state', SYNC_KEY = 'worth-tracker:sync', FILE = 'worth.json';
+const KEY = 'worth-tracker:state', AUTH_KEY = 'worth-tracker:auth';
 const init = () => {
   const st = load(KEY, null) || load('worth.state', null) || {items: load('worth.items', []), currency: load('worth.currency', 'EUR'), income: +load('worth.income', 0) || 0};
   return {currency: 'EUR', income: 0, items: [], subs: [], wishes: [], tomb: {}, settingsU: 1, ...st};
@@ -834,7 +833,7 @@ $('settings').onclick = openSettings;
 $('s-done').onclick = () => $('dlg3').close();
 $('s-cur').onchange = e => { currency = e.target.value; save(); render(); };
 $('s-income').oninput = e => { income = Math.max(0, parseFloat(e.target.value) || 0); save(); render(); };
-$('clear').onclick = () => { if (confirm('Delete all items, subscriptions and wishes?' + (syncCfg ? ' This also deletes them from your synced repo.' : '') + ' This cannot be undone.')) { items = []; subs = []; wishes = []; income = 0; save(); $('dlg3').close(); render(); } };
+$('clear').onclick = () => { if (confirm('Delete all items, subscriptions and wishes?' + (auth ? ' This also deletes them from your synced account.' : '') + ' This cannot be undone.')) { items = []; subs = []; wishes = []; income = 0; save(); $('dlg3').close(); render(); } };
 $('export').onclick = () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify({currency, income, items, subs, wishes}, null, 2)], {type: 'application/json'}));
@@ -850,14 +849,26 @@ $('file').onchange = async e => {
   e.target.value = '';
 };
 
-/* ============ GitHub sync (private repo, one JSON file) ============ */
-let syncCfg = load(SYNC_KEY, null), syncSt = {s: 'idle', msg: '', at: null}, syncing = false, again = false, syncTimer = null;
+/* ============ cloud sync (Supabase: email sign-in, one private row per user) ============ */
+const SB_URL = 'https://gaagfxtdoylsnlzwnugn.supabase.co', SB_KEY = 'sb_publishable_egT2f0Up7yGJoN5TrsKJlQ_Z9oL8n_h';
+let auth = load(AUTH_KEY, null), syncSt = {s: 'idle', msg: '', at: null}, syncing = false, again = false, syncTimer = null;
+const setAuth = (access, refresh) => {
+  const p = JSON.parse(atob(access.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+  auth = {access_token: access, refresh_token: refresh, expires_at: p.exp * 1000, uid: p.sub, email: p.email};
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(auth)); } catch {}
+};
+// returning from the emailed sign-in link: the session arrives in the URL fragment
+(() => {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('access_token') && h.get('refresh_token')) { try { setAuth(h.get('access_token'), h.get('refresh_token')); } catch {} }
+  else if (h.get('error_description')) syncSt = {s: 'error', msg: h.get('error_description').replace(/\+/g, ' '), at: null};
+  else return;
+  history.replaceState(null, '', location.pathname + location.search);
+})();
+
 const byId = (a, b) => a.id < b.id ? -1 : 1;
 const payload = () => ({version: 1, settings: {currency, income, u: settingsU}, items, subs, wishes, tomb});
 const canon = p => JSON.stringify([p.settings, [...(p.items||[])].sort(byId), [...(p.subs||[])].sort(byId), [...(p.wishes||[])].sort(byId), Object.entries(p.tomb||{}).sort()]);
-const b64enc = str => { const bytes = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(bin); };
-const b64dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), c => c.charCodeAt(0)));
-
 // newest change wins per record; a tombstone newer than the record deletes it. Returns true if the result differs from `remote`.
 function merge(remote) {
   const R = remote || {}, tombs = {...tomb};
@@ -869,67 +880,81 @@ function merge(remote) {
   if (det) det = items.find(i => i.id === det.id) ?? det;
   return !remote || canon(payload()) !== canon(R);
 }
-async function gh(path, opts = {}) {
-  return fetch('https://api.github.com' + path, {cache: 'no-store', ...opts, headers: {Authorization: 'Bearer ' + syncCfg.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opts.headers || {})}});
-}
 async function apiError(r) {
-  let m = ''; try { m = (await r.json()).message; } catch {}
-  return new Error(r.status === 401 ? 'The token was rejected or has expired.' : r.status === 403 ? 'The token lacks permission (needs Contents: Read and write on that repo).' : r.status === 404 ? 'Repository not found, or the token has no access to it.' : `GitHub error ${r.status}${m ? ': ' + m : ''}`);
+  let m = ''; try { const j = await r.json(); m = j.message || j.msg || j.error_description || ''; } catch {}
+  return new Error(r.status === 401 ? 'Your session expired — sign in again.' : r.status === 429 ? 'Too many emails requested — wait a few minutes and try again.' : `Server error ${r.status}${m ? ': ' + m : ''}`);
+}
+function signOutLocal() { try { localStorage.removeItem(AUTH_KEY); } catch {} auth = null; clearTimeout(syncTimer); syncSt = {s: 'idle', msg: '', at: null}; paintSync(); }
+async function freshToken() {
+  if (auth.expires_at - Date.now() > 60000) return;
+  const r = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {method: 'POST', headers: {apikey: SB_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: auth.refresh_token})});
+  if (r.status === 400 || r.status === 401) { signOutLocal(); throw new Error('Your session expired — sign in again.'); }
+  if (!r.ok) throw await apiError(r);
+  const j = await r.json(); setAuth(j.access_token, j.refresh_token);
+}
+async function sb(path, opts = {}) {
+  await freshToken();
+  return fetch(SB_URL + path, {cache: 'no-store', ...opts, headers: {apikey: SB_KEY, Authorization: 'Bearer ' + auth.access_token, 'Content-Type': 'application/json', ...(opts.headers || {})}});
 }
 function setSync(s, msg = '') { syncSt = {s, msg, at: s === 'ok' ? Date.now() : syncSt.at}; paintSync(); }
 function paintSync() {
-  const b = $('syncstat'); b.hidden = !syncCfg; if (!syncCfg) return;
-  b.textContent = {syncing: '↻ Syncing…', ok: '✓ Synced', error: '⚠ Sync issue', idle: '☁ Sync'}[syncSt.s];
-  b.title = syncSt.s === 'error' ? syncSt.msg : syncSt.at ? 'Last synced ' + new Date(syncSt.at).toLocaleTimeString() : 'Not synced yet';
+  const b = $('syncstat'); b.hidden = !auth;
+  if (auth) {
+    b.textContent = {syncing: '↻ Syncing…', ok: '✓ Synced', error: '⚠ Sync issue', idle: '☁ Sync'}[syncSt.s];
+    b.title = syncSt.s === 'error' ? syncSt.msg : syncSt.at ? 'Last synced ' + new Date(syncSt.at).toLocaleTimeString() : 'Not synced yet';
+  }
   renderSync();
 }
 function renderSync() {
-  $('sy-form').style.display = syncCfg ? 'none' : 'grid'; $('sy-on').style.display = syncCfg ? 'grid' : 'none';
-  if (syncCfg) { $('sy-name').textContent = syncCfg.repo; $('sy-state').textContent = syncSt.s === 'syncing' ? 'Syncing…' : syncSt.s === 'ok' ? 'Up to date · ' + new Date(syncSt.at).toLocaleTimeString() : syncSt.s === 'error' ? 'Last attempt failed — changes are safe on this device.' : 'Waiting for first sync…'; }
-  const m = $('sy-msg'); m.className = syncSt.s === 'error' ? 'warnline' : ''; if (syncSt.s === 'error' || !syncCfg) { if (syncSt.s === 'error') m.textContent = syncSt.msg; } else m.textContent = '';
+  $('sy-form').style.display = auth ? 'none' : 'grid'; $('sy-on').style.display = auth ? 'grid' : 'none';
+  if (auth) { $('sy-name').textContent = auth.email; $('sy-state').textContent = syncSt.s === 'syncing' ? 'Syncing…' : syncSt.s === 'ok' ? 'Up to date · ' + new Date(syncSt.at).toLocaleTimeString() : syncSt.s === 'error' ? 'Last attempt failed — changes are safe on this device.' : 'Waiting for first sync…'; }
+  const m = $('sy-msg'); if (syncSt.s === 'error') { m.className = 'warnline'; m.textContent = syncSt.msg; } else if (!m.dataset.keep) { m.className = ''; m.textContent = ''; }
 }
-function queueSync() { if (!syncCfg) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, 1500); }
+function queueSync() { if (!auth) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, 1500); }
 async function sync() {
-  if (!syncCfg) return;
+  if (!auth) return;
   if (syncing) { again = true; return; }
   syncing = true; clearTimeout(syncTimer); setSync('syncing');
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const r = await gh(`/repos/${syncCfg.repo}/contents/${FILE}`);
-      let sha, remote = null;
-      if (r.status === 200) { const j = await r.json(); sha = j.sha; remote = JSON.parse(b64dec(j.content)); }
-      else if (r.status !== 404) throw await apiError(r);
+      const r = await sb(`/rest/v1/worth_data?select=data,version&user_id=eq.${auth.uid}`);
+      if (!r.ok) throw await apiError(r);
+      const row = (await r.json())[0], remote = row && row.data && row.data.settings ? row.data : null;
       const differs = merge(remote); persist(); render();
       if (!differs) break;
-      const put = await gh(`/repos/${syncCfg.repo}/contents/${FILE}`, {method: 'PUT', body: JSON.stringify({message: 'worth: sync', content: b64enc(JSON.stringify(payload(), null, 1)), ...(sha ? {sha} : {})})});
-      if (put.ok) break;
-      if (put.status === 409 || put.status === 422) { if (attempt === 2) throw new Error('Another device changed the data at the same time — will retry.'); continue; }
-      throw await apiError(put);
+      let ok;
+      if (row) {   // optimistic lock: only write if nobody else bumped the version meanwhile
+        const w = await sb(`/rest/v1/worth_data?user_id=eq.${auth.uid}&version=eq.${row.version}`, {method: 'PATCH', headers: {Prefer: 'return=representation'}, body: JSON.stringify({data: payload(), version: row.version + 1})});
+        if (!w.ok) throw await apiError(w); ok = (await w.json()).length > 0;
+      } else {
+        const w = await sb('/rest/v1/worth_data', {method: 'POST', headers: {Prefer: 'return=minimal'}, body: JSON.stringify({user_id: auth.uid, data: payload(), version: 1})});
+        if (w.status === 409) ok = false; else if (!w.ok) throw await apiError(w); else ok = true;
+      }
+      if (ok) break;
+      if (attempt === 2) throw new Error('Another device changed the data at the same time — will retry.');
     }
     setSync('ok');
   } catch (e) {
-    setSync('error', e instanceof TypeError ? 'Offline — changes are saved on this device and will sync when you are back online.' : e.message);
-    syncTimer = setTimeout(sync, 60000);
+    if (auth) { setSync('error', e instanceof TypeError ? 'Offline — changes are saved on this device and will sync when you are back online.' : e.message); syncTimer = setTimeout(sync, 60000); }
   } finally { syncing = false; if (again) { again = false; sync(); } }
 }
 $('sy-connect').onclick = async () => {
-  const repo = $('sy-repo').value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, ''), token = $('sy-token').value.trim(), m = $('sy-msg');
-  const fail = t => { m.className = 'warnline'; m.textContent = t; };
-  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return fail('Enter the repo as owner/name, e.g. yourname/worth-data.');
-  if (!token) return fail('Paste an access token.');
-  m.className = 'hint'; m.textContent = 'Checking…'; syncCfg = {repo, token};
+  const email = $('sy-email').value.trim(), m = $('sy-msg'), say = (t, cls = 'hint', keep = true) => { m.className = cls; m.textContent = t; m.dataset.keep = keep ? '1' : ''; };
+  if (!/^\S+@\S+\.\S+$/.test(email)) return say('Enter a valid email address.', 'warnline');
+  say('Sending…');
   try {
-    const r = await gh(`/repos/${repo}`); if (!r.ok) throw await apiError(r);
-    const info = await r.json();
-    if (!info.private) throw new Error('This repository is public — your data would be visible to everyone. Use a private repository.');
-    if (info.permissions && !info.permissions.push) throw new Error('The token is read-only. It needs Contents: Read and write.');
-  } catch (e) { syncCfg = load(SYNC_KEY, null); return fail(e instanceof TypeError ? 'Could not reach GitHub — are you online?' : e.message); }
-  try { localStorage.setItem(SYNC_KEY, JSON.stringify(syncCfg)); } catch {}
-  $('sy-token').value = ''; m.textContent = ''; paintSync(); sync();
+    const r = await fetch(SB_URL + '/auth/v1/otp?redirect_to=' + encodeURIComponent(location.origin + location.pathname), {method: 'POST', headers: {apikey: SB_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({email, create_user: true})});
+    if (!r.ok) throw await apiError(r);
+    say('Check your inbox and open the link on this device. You will come right back here.', 'okline');
+  } catch (e) { say(e instanceof TypeError ? 'Could not reach the server — are you online?' : e.message, 'warnline'); }
 };
 $('sy-now').onclick = sync;
-$('sy-disc').onclick = () => { if (confirm('Disconnect sync? Your data stays on this device and in the repo.')) { try { localStorage.removeItem(SYNC_KEY); } catch {} syncCfg = null; clearTimeout(syncTimer); syncSt = {s: 'idle', msg: '', at: null}; paintSync(); } };
-document.addEventListener('visibilitychange', () => { if (!document.hidden && syncCfg && (!syncSt.at || Date.now() - syncSt.at > 20000)) sync(); });
+$('sy-disc').onclick = async () => {
+  if (!confirm('Sign out? Your data stays on this device and in your account.')) return;
+  try { await sb('/auth/v1/logout', {method: 'POST'}); } catch {}
+  signOutLocal();
+};
+document.addEventListener('visibilitychange', () => { if (!document.hidden && auth && (!syncSt.at || Date.now() - syncSt.at > 20000)) sync(); });
 addEventListener('online', () => sync());
 
 /* ============ events ============ */
@@ -951,7 +976,8 @@ document.querySelector('.wrap').addEventListener('click', e => {
 ['q','sort','filter'].forEach(id => $(id).addEventListener('input', render));
 render();
 paintSync();
-if (syncCfg) sync();
+if (auth) sync();
+if (syncSt.s === 'error') openSettings();
 </script>
 </body>
 </html>
