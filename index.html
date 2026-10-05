@@ -90,6 +90,7 @@ h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.03em}
 .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start}
 .empty{grid-column:1/-1;text-align:center;color:var(--mute);padding:64px 20px;border-radius:26px}
 .empty b{display:block;color:var(--ink);font-size:16px;font-weight:600;margin-bottom:4px}
+.item.glass{-webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:url(#glass) blur(18px) saturate(1.6)}
 .item{border-radius:20px;padding:16px 20px 12px;transition:transform .3s cubic-bezier(.2,.7,.2,1)}
 .item.pop{animation:in .5s cubic-bezier(.2,.7,.2,1) both}
 .item[data-id]{cursor:pointer}.item:hover{transform:translateY(-2px)}
